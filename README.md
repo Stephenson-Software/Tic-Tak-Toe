@@ -12,10 +12,8 @@ pip install -r requirements.txt
 ```
 
 ### Running the game
-Launch the game from the `src` directory. The entry point imports its `Graphik` module by bare name, so it resolves only when `src` is the working directory.
 ```
-cd src
-python3 tictactoe.py
+python3 src/tictactoe.py
 ```
 
 ## Support
