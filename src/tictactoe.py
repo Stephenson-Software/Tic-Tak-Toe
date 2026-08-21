@@ -1,7 +1,7 @@
 import pygame
 import time
 import random
-from graphik import Graphik
+from Graphik import Graphik
 
 
 #  @author Daniel McCoy Stephenson
