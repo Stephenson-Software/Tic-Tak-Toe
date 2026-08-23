@@ -342,5 +342,6 @@ class TicTacToe:
 
                 pygame.display.update()
 
-ticTacToe = TicTacToe()
-ticTacToe.titleScreen()
+if __name__ == "__main__":
+    ticTacToe = TicTacToe()
+    ticTacToe.titleScreen()
