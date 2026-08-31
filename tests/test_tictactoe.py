@@ -65,7 +65,9 @@ def test_new_game_starts_with_an_empty_board(game):
 
 @pytest.mark.parametrize("handlerName,attributeName", CELLS)
 def test_handler_marks_only_its_own_cell(game, handlerName, attributeName):
-    game.computerTurn = lambda: None
+    stepsTaken = []
+    game.drawGrid = lambda: stepsTaken.append("drawGrid")
+    game.computerTurn = lambda: stepsTaken.append("computerTurn")
 
     getattr(game, handlerName)()
 
@@ -73,12 +75,14 @@ def test_handler_marks_only_its_own_cell(game, handlerName, attributeName):
     expected[attributeName] = "X"
     assert readBoard(game) == expected
     assert game.moves == 1
+    assert stepsTaken == ["drawGrid", "computerTurn"]
 
 
 @pytest.mark.parametrize("handlerName,attributeName", CELLS)
 def test_handler_ignores_an_occupied_cell(game, handlerName, attributeName):
-    turnsTaken = []
-    game.computerTurn = lambda: turnsTaken.append("computerTurn")
+    stepsTaken = []
+    game.drawGrid = lambda: stepsTaken.append("drawGrid")
+    game.computerTurn = lambda: stepsTaken.append("computerTurn")
     setattr(game, attributeName, "O")
     game.moves = 1
 
@@ -86,7 +90,7 @@ def test_handler_ignores_an_occupied_cell(game, handlerName, attributeName):
 
     assert getattr(game, attributeName) == "O"
     assert game.moves == 1
-    assert turnsTaken == []
+    assert stepsTaken == []
 
 
 @pytest.mark.parametrize("lineName,attributes", WIN_LINES)
@@ -154,6 +158,7 @@ def test_computer_turn_takes_the_last_empty_cell(game):
 
     assert game.bottomRightL == "O"
     assert game.moves == 9
+    assert game.screensShown == ["tie"]
 
 
 def test_computer_turn_does_not_move_on_a_full_board(game):
