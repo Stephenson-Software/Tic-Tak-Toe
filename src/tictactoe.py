@@ -214,7 +214,7 @@ class TicTacToe:
                 self.graphik.drawText("You won!", self.displayWidth//2, self.displayHeight//4, 64, self.black)
                 middleButtonXPos = self.displayWidth//2 - 50
                 self.graphik.drawButton(middleButtonXPos, self.displayHeight - 200, 100, 50, self.black, self.white, 16, "Play Again", self.restart)
-                self.graphik.drawButton(middleButtonXPos, self.displayHeight - 100, 100, 50, self.black, self.white, 16, "Quit", exit)
+                self.graphik.drawButton(middleButtonXPos, self.displayHeight - 100, 100, 50, self.black, self.white, 16, "Quit", self.exit)
 
                 pygame.display.update()
         
@@ -231,7 +231,7 @@ class TicTacToe:
                 self.graphik.drawText("You lost!", self.displayWidth//2, self.displayHeight//4, 64, self.black)
                 middleButtonXPos = self.displayWidth//2 - 50
                 self.graphik.drawButton(middleButtonXPos, self.displayHeight - 200, 100, 50, self.black, self.white, 20, "Play Again", self.restart)
-                self.graphik.drawButton(middleButtonXPos, self.displayHeight - 100, 100, 50, self.black, self.white, 20, "Quit", exit)
+                self.graphik.drawButton(middleButtonXPos, self.displayHeight - 100, 100, 50, self.black, self.white, 20, "Quit", self.exit)
 
                 pygame.display.update()
                 
@@ -245,10 +245,10 @@ class TicTacToe:
                     quit()
             
                 self.gameDisplay.fill(self.white)
-                self.graphik.drawText("You lost!", self.displayWidth//2, self.displayHeight//4, 64, self.black)
+                self.graphik.drawText("It's a tie!", self.displayWidth//2, self.displayHeight//4, 64, self.black)
                 middleButtonXPos = self.displayWidth//2 - 50
                 self.graphik.drawButton(middleButtonXPos, self.displayHeight - 200, 100, 50, self.black, self.white, 20, "Play Again", self.restart)
-                self.graphik.drawButton(middleButtonXPos, self.displayHeight - 100, 100, 50, self.black, self.white, 20, "Quit", exit)
+                self.graphik.drawButton(middleButtonXPos, self.displayHeight - 100, 100, 50, self.black, self.white, 20, "Quit", self.exit)
 
                 pygame.display.update()
 
@@ -338,7 +338,7 @@ class TicTacToe:
                 self.graphik.drawText("Tic Tac Toe", self.displayWidth//2, self.displayHeight//4, 64, self.black)
                 middleButtonXPos = self.displayWidth//2 - 50
                 self.graphik.drawButton(middleButtonXPos, self.displayHeight - 300, 100, 50, self.black, self.white, 20, "Start", self.gridScreen)
-                self.graphik.drawButton(middleButtonXPos, self.displayHeight - 100, 100, 50, self.black, self.white, 20, "Quit", exit)
+                self.graphik.drawButton(middleButtonXPos, self.displayHeight - 100, 100, 50, self.black, self.white, 20, "Quit", self.exit)
 
                 pygame.display.update()
 
