@@ -1,3 +1,6 @@
+import types
+
+import pygame
 import pytest
 
 import tictactoe
@@ -30,6 +33,40 @@ WIN_LINES = [
     ("diagonal <-", ("topRightL", "middleMiddleL", "bottomLeftL")),
 ]
 
+#  The three end-of-game screens, paired with the headline each one draws.
+END_SCREENS = [
+    ("playerWin", "You won!"),
+    ("computerWin", "You lost!"),
+    ("tie", "It's a tie!"),
+]
+
+#  Every screen that offers a Quit button, paired with the handler behind each of its buttons.
+BUTTON_SCREENS = [
+    ("playerWin", {"Play Again": "restart", "Quit": "exit"}),
+    ("computerWin", {"Play Again": "restart", "Quit": "exit"}),
+    ("tie", {"Play Again": "restart", "Quit": "exit"}),
+    ("titleScreen", {"Start": "gridScreen", "Quit": "exit"}),
+]
+
+
+class ScreenLoopExit(Exception):
+    pass
+
+
+#  Stands in for Graphik so a screen's draw calls can be asserted without rendering anything.
+class RecordingGraphik:
+    def __init__(self):
+        self.calls = []
+
+    def drawRectangle(self, xpos, ypos, width, height, color):
+        self.calls.append(("drawRectangle",))
+
+    def drawText(self, text, xpos, ypos, size, color):
+        self.calls.append(("drawText", text))
+
+    def drawButton(self, xpos, ypos, width, height, colorBox, colorText, sizeText, text, function):
+        self.calls.append(("drawButton", text, function))
+
 
 @pytest.fixture
 def game(monkeypatch):
@@ -56,6 +93,28 @@ def setBoard(ticTacToe, letters):
     for attribute, letter in zip(CELL_ATTRIBUTES, letters):
         setattr(ticTacToe, attribute, letter)
     ticTacToe.moves = len([letter for letter in letters if letter != ""])
+
+
+def renderOneFrame(ticTacToe, monkeypatch, screenName):
+    #  Every screen loops forever over pygame.event.get(), so the event queue is replaced with
+    #  one that yields a single non-QUIT event and then breaks the loop from the inside. The
+    #  screen is looked up on the class because the fixture replaces it on the instance.
+    framesRendered = []
+
+    def fakeEventGet():
+        if framesRendered:
+            raise ScreenLoopExit()
+        framesRendered.append(1)
+        return [types.SimpleNamespace(type=pygame.MOUSEMOTION)]
+
+    monkeypatch.setattr(tictactoe.pygame.event, "get", fakeEventGet)
+    ticTacToe.graphik = RecordingGraphik()
+    ticTacToe.moves = 9
+
+    with pytest.raises(ScreenLoopExit):
+        getattr(tictactoe.TicTacToe, screenName)(ticTacToe)
+
+    return ticTacToe.graphik.calls
 
 
 def test_new_game_starts_with_an_empty_board(game):
@@ -169,3 +228,19 @@ def test_computer_turn_does_not_move_on_a_full_board(game):
 
     assert readBoard(game) == boardBefore
     assert game.moves == 9
+
+
+@pytest.mark.parametrize("screenName,headline", END_SCREENS)
+def test_end_screen_draws_its_own_headline(game, monkeypatch, screenName, headline):
+    calls = renderOneFrame(game, monkeypatch, screenName)
+
+    assert [call[1] for call in calls if call[0] == "drawText"] == [headline]
+
+
+@pytest.mark.parametrize("screenName,handlerNames", BUTTON_SCREENS)
+def test_screen_buttons_call_the_game_methods(game, monkeypatch, screenName, handlerNames):
+    calls = renderOneFrame(game, monkeypatch, screenName)
+
+    buttons = {call[1]: call[2] for call in calls if call[0] == "drawButton"}
+    expected = {label: getattr(game, handlerName) for label, handlerName in handlerNames.items()}
+    assert buttons == expected
