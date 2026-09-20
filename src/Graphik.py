@@ -4,25 +4,11 @@ import pygame
 #  @author Daniel McCoy Stephenson
 #  @since February 3rd, 2022
 class Graphik:
-    def __init__(self):
-        displayWidth = 900
-        displayHeight = 600
-        self.gameDisplay = pygame.display.set_mode((displayWidth, displayHeight))
-
-        self.black = (0,0,0)
-        self.white = (255,255,255)
-        self.red = (200,0,0)
-        self.green = (0,200,0)
-        self.blue = (0,0,200)
-
     def __init__(self, gameDisplay):
         self.gameDisplay = gameDisplay
 
     def getGameDisplay(self):
         return self.gameDisplay
-
-    def getVersion(self):
-        return self.version
 
     def drawRectangle(self, xpos, ypos, width, height, color):
         pygame.draw.rect(self.gameDisplay, color, [xpos, ypos, width, height])
