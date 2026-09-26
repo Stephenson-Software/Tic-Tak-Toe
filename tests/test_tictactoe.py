@@ -65,7 +65,7 @@ class RecordingGraphik:
         self.calls.append(("drawText", text))
 
     def drawButton(self, xpos, ypos, width, height, colorBox, colorText, sizeText, text, function):
-        self.calls.append(("drawButton", text, function))
+        self.calls.append(("drawButton", text, function, width, sizeText))
 
 
 @pytest.fixture
@@ -244,3 +244,24 @@ def test_screen_buttons_call_the_game_methods(game, monkeypatch, screenName, han
     buttons = {call[1]: call[2] for call in calls if call[0] == "drawButton"}
     expected = {label: getattr(game, handlerName) for label, handlerName in handlerNames.items()}
     assert buttons == expected
+
+
+@pytest.mark.parametrize("screenName", [screenName for screenName, _ in BUTTON_SCREENS])
+def test_screen_button_labels_fit_inside_their_buttons(game, monkeypatch, screenName):
+    #  Issue #23: "Play Again" at size 20 is 104 px wide in the font Graphik draws with, which
+    #  spilled past the 100 px button on the lost and tie screens. Measured with the real font.
+    calls = renderOneFrame(game, monkeypatch, screenName)
+
+    for call in calls:
+        if call[0] == "drawButton":
+            text, width, sizeText = call[1], call[3], call[4]
+            assert pygame.font.Font("freesansbold.ttf", sizeText).size(text)[0] <= width, text
+
+
+def test_end_screens_draw_their_buttons_at_the_same_sizes(game, monkeypatch):
+    buttonSizes = []
+    for screenName, _ in END_SCREENS:
+        calls = renderOneFrame(game, monkeypatch, screenName)
+        buttonSizes.append([(call[1], call[3], call[4]) for call in calls if call[0] == "drawButton"])
+
+    assert buttonSizes[0] == buttonSizes[1] == buttonSizes[2]
