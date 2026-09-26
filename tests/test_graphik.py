@@ -124,6 +124,10 @@ def test_only_the_left_mouse_button_clicks(monkeypatch, pressedButtons):
     assert pressButton(Graphik(FakeDisplay()), monkeypatch, (250, 325), pressedButtons) == 0
 
 
+def test_left_click_still_counts_while_another_button_is_held(monkeypatch):
+    assert pressButton(Graphik(FakeDisplay()), monkeypatch, (250, 325), (1, 0, 1)) == 1
+
+
 #  The hit-box uses strict comparisons, so a click on the button's outline is ignored and
 #  only the pixels strictly inside it register. The right and bottom edges sit at
 #  xpos + width and ypos + height, one pixel past the last pixel drawRectangle fills.
