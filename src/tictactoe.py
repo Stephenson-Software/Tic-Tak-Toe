@@ -214,7 +214,7 @@ class TicTacToe:
                 self.graphik.drawText("You won!", self.displayWidth//2, self.displayHeight//4, 64, self.black)
                 middleButtonXPos = self.displayWidth//2 - 50
                 self.graphik.drawButton(middleButtonXPos, self.displayHeight - 200, 100, 50, self.black, self.white, 16, "Play Again", self.restart)
-                self.graphik.drawButton(middleButtonXPos, self.displayHeight - 100, 100, 50, self.black, self.white, 16, "Quit", self.exit)
+                self.graphik.drawButton(middleButtonXPos, self.displayHeight - 100, 100, 50, self.black, self.white, 20, "Quit", self.exit)
 
                 pygame.display.update()
         
@@ -230,7 +230,7 @@ class TicTacToe:
                 self.gameDisplay.fill(self.white)
                 self.graphik.drawText("You lost!", self.displayWidth//2, self.displayHeight//4, 64, self.black)
                 middleButtonXPos = self.displayWidth//2 - 50
-                self.graphik.drawButton(middleButtonXPos, self.displayHeight - 200, 100, 50, self.black, self.white, 20, "Play Again", self.restart)
+                self.graphik.drawButton(middleButtonXPos, self.displayHeight - 200, 100, 50, self.black, self.white, 16, "Play Again", self.restart)
                 self.graphik.drawButton(middleButtonXPos, self.displayHeight - 100, 100, 50, self.black, self.white, 20, "Quit", self.exit)
 
                 pygame.display.update()
@@ -247,7 +247,7 @@ class TicTacToe:
                 self.gameDisplay.fill(self.white)
                 self.graphik.drawText("It's a tie!", self.displayWidth//2, self.displayHeight//4, 64, self.black)
                 middleButtonXPos = self.displayWidth//2 - 50
-                self.graphik.drawButton(middleButtonXPos, self.displayHeight - 200, 100, 50, self.black, self.white, 20, "Play Again", self.restart)
+                self.graphik.drawButton(middleButtonXPos, self.displayHeight - 200, 100, 50, self.black, self.white, 16, "Play Again", self.restart)
                 self.graphik.drawButton(middleButtonXPos, self.displayHeight - 100, 100, 50, self.black, self.white, 20, "Quit", self.exit)
 
                 pygame.display.update()
