@@ -59,13 +59,13 @@ class RecordingGraphik:
         self.calls = []
 
     def drawRectangle(self, xpos, ypos, width, height, color):
-        self.calls.append(("drawRectangle",))
+        self.calls.append(("drawRectangle", xpos, ypos, width, height))
 
     def drawText(self, text, xpos, ypos, size, color):
         self.calls.append(("drawText", text))
 
     def drawButton(self, xpos, ypos, width, height, colorBox, colorText, sizeText, text, function):
-        self.calls.append(("drawButton", text, function, width, sizeText))
+        self.calls.append(("drawButton", text, function, width, sizeText, xpos, ypos, height))
 
 
 @pytest.fixture
@@ -220,6 +220,33 @@ def test_computer_turn_takes_the_last_empty_cell(game):
     assert game.screensShown == ["tie"]
 
 
+@pytest.mark.parametrize("roll,attributeName", list(enumerate(CELL_ATTRIBUTES, start=1)))
+def test_computer_roll_claims_its_own_cell(game, monkeypatch, roll, attributeName):
+    monkeypatch.setattr(tictactoe.random, "randint", lambda low, high: roll)
+
+    game.computerTurn()
+
+    expected = {attribute: "" for attribute in CELL_ATTRIBUTES}
+    expected[attributeName] = "O"
+    assert readBoard(game) == expected
+    assert game.moves == 1
+
+
+def test_computer_turn_rolls_again_on_a_ten_or_an_occupied_cell(game, monkeypatch):
+    #  randint(1, 10) can roll a 10, which no cell answers to, so the loop simply rolls again.
+    #  Current behavior: a wasted roll, not a skipped turn.
+    rolls = [10, 1, 2]
+    monkeypatch.setattr(tictactoe.random, "randint", lambda low, high: rolls.pop(0))
+    setBoard(game, ["X", "", "", "", "", "", "", "", ""])
+
+    game.computerTurn()
+
+    assert rolls == []
+    assert game.topLeftL == "X"
+    assert game.topMiddleL == "O"
+    assert game.moves == 2
+
+
 def test_computer_turn_does_not_move_on_a_full_board(game):
     setBoard(game, ["X", "O", "X", "X", "O", "O", "O", "X", "X"])
     boardBefore = readBoard(game)
@@ -265,3 +292,45 @@ def test_end_screens_draw_their_buttons_at_the_same_sizes(game, monkeypatch):
         buttonSizes.append([(call[1], call[3], call[4]) for call in calls if call[0] == "drawButton"])
 
     assert buttonSizes[0] == buttonSizes[1] == buttonSizes[2]
+
+
+def drawBoard(ticTacToe):
+    #  The fixture replaces drawGrid on the instance, so the real one is looked up on the class.
+    ticTacToe.graphik = RecordingGraphik()
+    tictactoe.TicTacToe.drawGrid(ticTacToe)
+    return ticTacToe.graphik.calls
+
+
+def test_grid_slot_shows_its_cell_and_calls_its_handler(game):
+    #  A distinct letter per cell makes a slot wired to the wrong attribute show up by value.
+    for attribute, letter in zip(CELL_ATTRIBUTES, "ABCDEFGHI"):
+        setattr(game, attribute, letter)
+
+    calls = drawBoard(game)
+
+    slots = [(call[1], call[2]) for call in calls if call[0] == "drawButton"]
+    assert slots == [(getattr(game, attribute), getattr(game, handlerName)) for handlerName, attribute in CELLS]
+
+
+def test_grid_slots_form_a_three_by_three_grid_inside_the_board(game):
+    calls = drawBoard(game)
+
+    board = [call for call in calls if call[0] == "drawRectangle"]
+    assert len(board) == 1
+    _, boardX, boardY, boardWidth, boardHeight = board[0]
+
+    slots = [call for call in calls if call[0] == "drawButton"]
+    positions = [(call[5], call[6]) for call in slots]
+    assert all((call[3], call[7]) == (100, 100) for call in slots)
+
+    #  Row-major order, 125 px apart, with the middle slot centred on the display.
+    columns = sorted(set(x for x, _ in positions))
+    rows = sorted(set(y for _, y in positions))
+    assert positions == [(x, y) for y in rows for x in columns]
+    assert [b - a for a, b in zip(columns, columns[1:])] == [125, 125]
+    assert [b - a for a, b in zip(rows, rows[1:])] == [125, 125]
+    assert (columns[1] + 50, rows[1] + 50) == (game.displayWidth // 2, game.displayHeight // 2)
+
+    for x, y in positions:
+        assert boardX <= x and x + 100 <= boardX + boardWidth
+        assert boardY <= y and y + 100 <= boardY + boardHeight
