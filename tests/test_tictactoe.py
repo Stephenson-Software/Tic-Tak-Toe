@@ -334,3 +334,63 @@ def test_grid_slots_form_a_three_by_three_grid_inside_the_board(game):
     for x, y in positions:
         assert boardX <= x and x + 100 <= boardX + boardWidth
         assert boardY <= y and y + 100 <= boardY + boardHeight
+
+
+#  Every screen that runs its own event loop, and so must handle the window being closed.
+LOOPING_SCREENS = ["titleScreen", "gridScreen", "playerWin", "computerWin", "tie"]
+
+
+def recordShutdown(monkeypatch):
+    #  quit() is looked up as a module global before the builtin, so it can be replaced on the
+    #  module. It raises to stand in for the interpreter exiting, which also ends the loop.
+    shutdown = []
+
+    def fakeQuit():
+        shutdown.append("quit")
+        raise ScreenLoopExit()
+
+    monkeypatch.setattr(tictactoe.pygame, "quit", lambda: shutdown.append("pygame.quit"))
+    monkeypatch.setattr(tictactoe, "quit", fakeQuit, raising=False)
+    return shutdown
+
+
+@pytest.mark.parametrize("screenName", LOOPING_SCREENS)
+def test_closing_the_window_shuts_pygame_down_and_quits(game, monkeypatch, screenName):
+    shutdown = recordShutdown(monkeypatch)
+    monkeypatch.setattr(tictactoe.pygame.event, "get", lambda: [types.SimpleNamespace(type=pygame.QUIT)])
+    game.moves = 9
+
+    with pytest.raises(ScreenLoopExit):
+        getattr(tictactoe.TicTacToe, screenName)(game)
+
+    assert shutdown == ["pygame.quit", "quit"]
+
+
+def test_exit_shuts_pygame_down_and_quits(game, monkeypatch):
+    shutdown = recordShutdown(monkeypatch)
+
+    with pytest.raises(ScreenLoopExit):
+        game.exit()
+
+    assert shutdown == ["pygame.quit", "quit"]
+
+
+def test_grid_screen_redraws_the_board_once_per_event(game, monkeypatch):
+    #  Drawing happens inside the loop over events, so a pass with no events draws nothing and
+    #  a pass with three events draws the board three times.
+    eventBatches = [[], [types.SimpleNamespace(type=pygame.MOUSEMOTION)] * 3]
+
+    def fakeEventGet():
+        if not eventBatches:
+            raise ScreenLoopExit()
+        return eventBatches.pop(0)
+
+    draws = []
+    monkeypatch.setattr(tictactoe.pygame.event, "get", fakeEventGet)
+    game.gameDisplay = types.SimpleNamespace(fill=lambda color: draws.append(("fill", color)))
+    game.drawGrid = lambda: draws.append("drawGrid")
+
+    with pytest.raises(ScreenLoopExit):
+        tictactoe.TicTacToe.gridScreen(game)
+
+    assert draws == [("fill", game.white), "drawGrid"] * 3
