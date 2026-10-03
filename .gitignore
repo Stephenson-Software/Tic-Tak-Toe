@@ -1,3 +1,6 @@
 *.pyc
 __pycache__/
 .pytest_cache/
+
+# pygbag's browser build output (python -m pygbag --build src)
+src/build/

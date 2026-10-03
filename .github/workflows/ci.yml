@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # The graphik submodule is deliberately left uninitialized: `from Graphik import Graphik`
+      # resolves to the vendored src/Graphik.py, which tests/conftest.py puts on sys.path.
+      - uses: actions/checkout@v5
+
+      # Pinned rather than tracking the newest 3.x: pygame publishes no wheel for the very
+      # latest interpreters, and pip then falls back to a source build that needs SDL headers.
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: python3 -m pip install -r requirements-dev.txt
+
+      - name: Run the tests
+        run: python3 -m pytest
+
+      - name: Headless smoke launch
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          status=0
+          timeout 10 python3 src/tictactoe.py || status=$?
+          if [ "$status" -ne 124 ]; then
+            echo "The game exited with status $status; it was expected to still be running when the timeout fired (124)."
+            exit 1
+          fi
+          echo "The game was still running when the timeout fired."
