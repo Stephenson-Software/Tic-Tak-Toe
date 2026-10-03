@@ -1,4 +1,7 @@
 # Tic-Tac-Toe
+
+[![Play in your browser](https://img.shields.io/badge/Play-in%20your%20browser-2ea44f)](https://danielstephenson.dev/play/tic-tak-toe)
+
 This game allows you to play Tic Tac Toe against the computer.
 
 ## Play in your browser
