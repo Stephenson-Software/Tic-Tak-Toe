@@ -257,9 +257,9 @@ class TicTacToe:
         self.drawGridSlot(centerGridX, centerGridY, self.middleMiddleL, self.middleMiddle) # middle row middle column
         self.drawGridSlot(centerGridX + 125, centerGridY, self.middleRightL, self.middleRight) # middle row right column
 
-        self.drawGridSlot(centerGridX - 125, centerGridY + 125, self.bottomLeftL, self.bottomLeft) # top row left column
-        self.drawGridSlot(centerGridX, centerGridY + 125, self.bottomMiddleL, self.bottomMiddle) # top row middle column
-        self.drawGridSlot(centerGridX + 125, centerGridY + 125, self.bottomRightL, self.bottomRight) # top row right column
+        self.drawGridSlot(centerGridX - 125, centerGridY + 125, self.bottomLeftL, self.bottomLeft) # bottom row left column
+        self.drawGridSlot(centerGridX, centerGridY + 125, self.bottomMiddleL, self.bottomMiddle) # bottom row middle column
+        self.drawGridSlot(centerGridX + 125, centerGridY + 125, self.bottomRightL, self.bottomRight) # bottom row right column
         
         pygame.display.update()
 
