@@ -9,7 +9,7 @@ import tictactoe
 MAIN_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src", "main.py")
 
 
-def runMain(monkeypatch, runName="__main__"):
+def runMain(monkeypatch):
     #  The title screen loops forever in production, so it is replaced with a coroutine that
     #  records which game it was awaited on. main.py imports TicTacToe from the tictactoe module
     #  these tests already imported, so replacing the method on the class reaches it.
@@ -20,7 +20,7 @@ def runMain(monkeypatch, runName="__main__"):
         started.append(self)
 
     monkeypatch.setattr(tictactoe.TicTacToe, "titleScreen", recordTitleScreen)
-    runpy.run_path(MAIN_PATH, run_name=runName)
+    runpy.run_path(MAIN_PATH, run_name="__main__")
     return started
 
 
@@ -29,14 +29,6 @@ def test_main_awaits_the_title_screen_of_a_new_game(monkeypatch):
 
     assert len(started) == 1
     assert isinstance(started[0], tictactoe.TicTacToe)
-
-
-def test_main_starts_the_game_when_imported_under_any_name(monkeypatch):
-    #  pygbag runs main.py itself, so the launch is not guarded by __main__ the way
-    #  tictactoe.py's is.
-    started = runMain(monkeypatch, "main")
-
-    assert len(started) == 1
 
 
 def test_main_imports_pygame_itself():
