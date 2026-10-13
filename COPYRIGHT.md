@@ -16,4 +16,4 @@ This notice serves to acknowledge and affirm the authorship of Daniel McCoy Step
 
 ---
 
-For any inquiries regarding licensing, usage, or contributions, please contact Daniel McCoy Stephenson via the official [GitHub repository](https://github.com/Preponderous-Software/Tic-Tak-Toe).
+For any inquiries regarding licensing, usage, or contributions, please contact Daniel McCoy Stephenson via the official [GitHub repository](https://github.com/Stephenson-Software/Tic-Tak-Toe).
