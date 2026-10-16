@@ -8,7 +8,7 @@ This project, **Tic-Tak-Toe**, is developed and maintained as part of **Preponde
 
 ## Licensing
 
-The source code and associated materials for **Tic-Tak-Toe** are made available under the terms of the [MIT License](LICENSE). By contributing to this project, you agree that your contributions will also be licensed under the same terms.
+The source code and associated materials for **Tic-Tak-Toe** are made available under the terms of the [Stephenson Software Non-Commercial License (Stephenson-NC)](LICENSE). By contributing to this project, you agree that your contributions will also be licensed under the same terms.
 
 ## Attribution
 
