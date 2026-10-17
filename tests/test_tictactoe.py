@@ -598,3 +598,25 @@ def test_play_again_covers_the_bottom_middle_cell(game, monkeypatch):
 
     assert any(tictactoe.pressLandedOn(cell, xpos, ypos, width, height)
                for xpos, ypos, width, height, text, _ in game.buttons if text == "Play Again")
+
+
+#  A 100x50 button at (200, 300), probed on each edge and one pixel inside it.
+PROBED_BUTTON = (200, 300, 100, 50)
+PROBES = [(200, 325), (201, 325), (299, 325), (300, 325), (250, 300), (250, 301), (250, 349), (250, 350)]
+
+
+@pytest.mark.parametrize("position", PROBES, ids=["left edge", "just inside left", "just inside right", "right edge",
+                                                  "top edge", "just inside top", "just inside bottom", "bottom edge"])
+def test_a_press_lands_on_a_button_exactly_where_graphik_would_click_it(monkeypatch, position):
+    #  Presses replaced Graphik's own click check when the screens moved to press events, and
+    #  pressLandedOn keeps its bounds, so a click on a button's outline still presses nothing.
+    graphik = tictactoe.Graphik(None)
+    monkeypatch.setattr(graphik, "drawRectangle", lambda *args: None)
+    monkeypatch.setattr(graphik, "drawText", lambda *args: None)
+    monkeypatch.setattr(tictactoe.pygame.mouse, "get_pos", lambda: position)
+    monkeypatch.setattr(tictactoe.pygame.mouse, "get_pressed", lambda: (1, 0, 0))
+    clicks = []
+    xpos, ypos, width, height = PROBED_BUTTON
+    graphik.drawButton(xpos, ypos, width, height, (0, 0, 0), (255, 255, 255), 20, "Quit", lambda: clicks.append(1))
+
+    assert tictactoe.pressLandedOn(position, xpos, ypos, width, height) == (len(clicks) == 1)
