@@ -319,6 +319,12 @@ def test_end_screen_draws_its_own_headline(game, monkeypatch, screenName, headli
     assert [call[1] for call in calls if call[0] == "drawText"] == [headline]
 
 
+def test_title_screen_draws_the_game_name(game, monkeypatch):
+    calls = renderOneFrame(game, monkeypatch, "titleScreen")
+
+    assert [call[1] for call in calls if call[0] == "drawText"] == ["Tic Tac Toe"]
+
+
 @pytest.mark.parametrize("screenName,handlerNames", BUTTON_SCREENS)
 def test_screen_buttons_call_the_game_methods(game, monkeypatch, screenName, handlerNames):
     renderOneFrame(game, monkeypatch, screenName)
@@ -461,6 +467,16 @@ def test_every_frame_yields_to_the_event_loop(game, monkeypatch, pauses, screenN
     assert pauses.count(0) == 3
 
 
+@pytest.mark.parametrize("screenName", LOOPING_SCREENS)
+def test_every_frame_is_capped_at_sixty_frames_per_second(game, monkeypatch, screenName):
+    ticks = []
+    game.clock = types.SimpleNamespace(tick=ticks.append)
+
+    runScreen(game, monkeypatch, screenName, [[], [], []])
+
+    assert ticks == [60, 60, 60]
+
+
 @pytest.mark.parametrize("screenName", [screenName for screenName, _ in END_SCREENS])
 def test_end_screen_pauses_a_second_before_it_shows(game, monkeypatch, pauses, screenName):
     renderOneFrame(game, monkeypatch, screenName)
@@ -569,6 +585,18 @@ def test_the_browser_build_seeds_the_computer_from_the_clock(monkeypatch):
     tictactoe.TicTacToe()
 
     assert len(seeds) == 1 and isinstance(seeds[0], int)
+
+
+def test_the_game_opens_an_800_by_600_window_captioned_tic_tac_toe(monkeypatch):
+    window = []
+    monkeypatch.setattr(tictactoe.sys, "platform", "linux")
+    monkeypatch.setattr(tictactoe.pygame.display, "set_mode", lambda size: window.append(("set_mode", size)) or "display")
+    monkeypatch.setattr(tictactoe.pygame.display, "set_caption", lambda title: window.append(("set_caption", title)))
+
+    ticTacToe = tictactoe.TicTacToe()
+
+    assert window == [("set_mode", (800, 600)), ("set_caption", "Tic Tac Toe")]
+    assert ticTacToe.graphik.getGameDisplay() == "display"
 
 
 @pytest.mark.parametrize("screenName", [screenName for screenName, _ in END_SCREENS])
