@@ -491,6 +491,46 @@ def test_computer_pauses_a_second_before_it_moves(game, pauses):
     assert game.moves == 1
 
 
+def test_computer_turn_checks_the_board_before_and_after_its_move(game, monkeypatch):
+    #  The player's move is checked before the computer pauses and moves, and the computer's move
+    #  is drawn and then checked in turn. The pause and each check record whether the computer's
+    #  cell had been claimed yet when they ran.
+    stepsTaken = []
+
+    async def fakeSleep(seconds):
+        stepsTaken.append(("pause", game.topMiddleL))
+
+    def recordCheck():
+        stepsTaken.append(("checkForWinCondition", game.moves, game.topMiddleL))
+        return Finished()
+
+    monkeypatch.setattr(tictactoe.asyncio, "sleep", fakeSleep)
+    monkeypatch.setattr(tictactoe.random, "randint", lambda low, high: 2)
+    game.drawGrid = lambda: stepsTaken.append("drawGrid")
+    game.checkForWinCondition = recordCheck
+    setBoard(game, ["X", "", "", "", "", "", "", "", ""])
+
+    asyncio.run(game.computerTurn())
+
+    assert stepsTaken == [
+        ("checkForWinCondition", 1, ""),
+        ("pause", ""),
+        "drawGrid",
+        ("checkForWinCondition", 2, "O"),
+    ]
+
+
+def test_computer_completing_a_line_shows_the_computer_win_screen(game, monkeypatch):
+    monkeypatch.setattr(tictactoe.random, "randint", lambda low, high: 3)
+    setBoard(game, ["O", "O", "", "X", "X", "", "X", "", ""])
+
+    asyncio.run(game.computerTurn())
+
+    assert game.topRightL == "O"
+    assert game.moves == 6
+    assert game.screensShown == ["computerWin"]
+
+
 @pytest.mark.parametrize("screenName,handlerNames", BUTTON_SCREENS)
 def test_a_tap_presses_the_button_it_lands_on_once(game, monkeypatch, screenName, handlerNames):
     #  A browser tap delivers its press and its release in the same frame, by which time the
