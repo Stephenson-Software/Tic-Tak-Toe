@@ -658,6 +658,29 @@ def test_end_screen_discards_presses_made_during_its_pause(game, monkeypatch, pa
     assert steps[:2] == [("sleep", 1), ("clear", (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP))]
 
 
+@pytest.mark.parametrize("screenName", [screenName for screenName, _ in END_SCREENS])
+def test_end_screen_stops_looping_once_play_again_resets_the_moves(game, monkeypatch, screenName):
+    #  The end screens loop while moves > 0, and restart sets moves back to 0 before it awaits
+    #  the title screen. In production the title screen never returns (issue #25); here it does,
+    #  so the end screen is seen to return after that frame rather than drawing another one.
+    renderOneFrame(game, monkeypatch, screenName)
+    centre = buttonCentre(game, "Play Again")
+    game.moves = 9
+    eventBatches = [[press(centre), release(centre)]]
+
+    def fakeEventGet():
+        if not eventBatches:
+            raise ScreenLoopExit()
+        return eventBatches.pop(0)
+
+    monkeypatch.setattr(tictactoe.pygame.event, "get", fakeEventGet)
+
+    asyncio.run(getattr(tictactoe.TicTacToe, screenName)(game))
+
+    assert game.moves == 0
+    assert game.screensShown == ["titleScreen"]
+
+
 def test_play_again_covers_the_bottom_middle_cell(game, monkeypatch):
     #  The overlap the discarded presses guard against.
     drawBoard(game)
