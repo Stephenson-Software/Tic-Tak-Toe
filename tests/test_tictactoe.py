@@ -398,6 +398,46 @@ def test_grid_slots_form_a_three_by_three_grid_inside_the_board(game):
         assert boardY <= y and y + 100 <= boardY + boardHeight
 
 
+def test_drawing_the_board_puts_it_on_screen(game, monkeypatch):
+    #  The handlers and computerTurn draw the board in the middle of a frame, and then pause, so
+    #  drawGrid shows what it drew itself instead of waiting for the frame to end.
+    calls = []
+    game.graphik = RecordingGraphik()
+    game.graphik.calls = calls
+    monkeypatch.setattr(tictactoe.pygame.display, "update", lambda: calls.append(("update",)))
+    game.buttons = []
+
+    tictactoe.TicTacToe.drawGrid(game)
+
+    assert [call[0] for call in calls] == ["drawRectangle"] + ["drawButton"] * 9 + ["update"]
+
+
+@pytest.mark.parametrize("handlerName,attributeName", CELLS)
+def test_each_move_is_on_screen_before_the_pause_that_follows_it(game, monkeypatch, handlerName, attributeName):
+    #  The player's mark is shown during the computer's one-second pause, and the computer's mark
+    #  is shown before checkForWinCondition can open an end screen, which pauses in turn.
+    stepsTaken = []
+
+    async def fakeSleep(seconds):
+        stepsTaken.append(("pause", seconds))
+
+    computerAttribute = "bottomRightL" if attributeName != "bottomRightL" else "topLeftL"
+    computerRoll = CELL_ATTRIBUTES.index(computerAttribute) + 1
+    monkeypatch.setattr(tictactoe.asyncio, "sleep", fakeSleep)
+    monkeypatch.setattr(tictactoe.random, "randint", lambda low, high: computerRoll)
+    monkeypatch.setattr(tictactoe.pygame.display, "update", lambda: stepsTaken.append(("shown", readBoard(game))))
+    game.graphik = RecordingGraphik()
+    game.drawGrid = tictactoe.TicTacToe.drawGrid.__get__(game)
+
+    asyncio.run(getattr(game, handlerName)())
+
+    afterPlayer = {attribute: "" for attribute in CELL_ATTRIBUTES}
+    afterPlayer[attributeName] = "X"
+    afterComputer = dict(afterPlayer)
+    afterComputer[computerAttribute] = "O"
+    assert stepsTaken == [("shown", afterPlayer), ("pause", 1), ("shown", afterComputer)]
+
+
 #  Every screen that runs its own event loop, and so must handle the window being closed.
 LOOPING_SCREENS = ["titleScreen", "gridScreen", "playerWin", "computerWin", "tie"]
 
