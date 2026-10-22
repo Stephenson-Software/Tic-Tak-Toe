@@ -302,6 +302,26 @@ def test_computer_turn_rolls_again_on_a_ten_or_an_occupied_cell(game, monkeypatc
     assert game.moves == 2
 
 
+@pytest.mark.parametrize("roll,attributeName", list(enumerate(CELL_ATTRIBUTES, start=1)))
+def test_computer_never_overwrites_the_players_mark(game, monkeypatch, roll, attributeName):
+    #  A roll for the cell the player holds is wasted, and the next roll's cell is claimed instead.
+    nextRoll = roll % 9 + 1
+    rolls = [roll, nextRoll]
+    monkeypatch.setattr(tictactoe.random, "randint", lambda low, high: rolls.pop(0))
+    letters = [""] * 9
+    letters[roll - 1] = "X"
+    setBoard(game, letters)
+
+    asyncio.run(game.computerTurn())
+
+    expected = {attribute: "" for attribute in CELL_ATTRIBUTES}
+    expected[attributeName] = "X"
+    expected[CELL_ATTRIBUTES[nextRoll - 1]] = "O"
+    assert rolls == []
+    assert readBoard(game) == expected
+    assert game.moves == 2
+
+
 def test_computer_turn_does_not_move_on_a_full_board(game):
     setBoard(game, ["X", "O", "X", "X", "O", "O", "O", "X", "X"])
     boardBefore = readBoard(game)
