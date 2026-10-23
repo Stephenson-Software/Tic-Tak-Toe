@@ -519,6 +519,21 @@ def test_grid_screen_redraws_the_board_once_per_frame(game, monkeypatch):
     assert draws == [("fill", game.white), "drawGrid"] * 2
 
 
+@pytest.mark.parametrize("screenName", [screenName for screenName, _ in BUTTON_SCREENS])
+def test_every_frame_clears_the_window_to_white_before_drawing(game, monkeypatch, screenName):
+    #  The end screens open over the board the player just finished, so a frame that did not start
+    #  by clearing the window would leave the board showing behind the headline. The fill is
+    #  recorded alongside the screen's draw calls to keep their order.
+    game.gameDisplay = types.SimpleNamespace(fill=lambda color: game.graphik.calls.append(("fill", color)))
+
+    calls = runScreen(game, monkeypatch, screenName, [[], []])
+
+    frameLength = len(calls) // 2
+    assert calls[0] == ("fill", game.white)
+    assert [call for call in calls if call[0] == "fill"] == [("fill", game.white)] * 2
+    assert calls[:frameLength] == calls[frameLength:]
+
+
 @pytest.mark.parametrize("screenName", LOOPING_SCREENS)
 def test_every_frame_yields_to_the_event_loop(game, monkeypatch, pauses, screenName):
     #  The browser build (pygbag) freezes unless every frame hands control back to the browser.
@@ -604,6 +619,22 @@ def test_a_tap_presses_the_button_it_lands_on_once(game, monkeypatch, screenName
         runScreen(game, monkeypatch, screenName, [[press(centre), release(centre)], [], []])
 
         assert pressed == [handlerName], label
+
+
+@pytest.mark.parametrize("screenName,handlerNames", BUTTON_SCREENS)
+def test_two_presses_in_one_frame_press_only_the_button_under_the_last(game, monkeypatch, screenName, handlerNames):
+    #  readEvents keeps one press position per frame, the last one, so a quick double tap across
+    #  two buttons within a single frame presses only the second. Current behavior.
+    pressed = []
+    for handlerName in handlerNames.values():
+        setattr(game, handlerName, recorder(pressed, handlerName))
+    renderOneFrame(game, monkeypatch, screenName)
+    firstLabel, lastLabel = handlerNames
+    first, last = buttonCentre(game, firstLabel), buttonCentre(game, lastLabel)
+
+    runScreen(game, monkeypatch, screenName, [[press(first), release(first), press(last), release(last)], []])
+
+    assert pressed == [handlerNames[lastLabel]]
 
 
 @pytest.mark.parametrize("screenName,handlerNames", BUTTON_SCREENS)
