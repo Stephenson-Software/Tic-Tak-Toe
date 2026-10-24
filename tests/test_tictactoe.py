@@ -672,6 +672,23 @@ def test_a_right_press_or_a_press_beside_the_buttons_presses_nothing(game, monke
     assert pressed == []
 
 
+@pytest.mark.parametrize("screenName,handlerNames", BUTTON_SCREENS)
+def test_a_right_press_or_a_wheel_turn_after_a_left_press_does_not_cancel_it(game, monkeypatch, screenName, handlerNames):
+    #  readEvents keeps the last left-button press in a frame and ignores the other buttons'
+    #  presses (a wheel turn arrives as a press of button 4 or 5), so one landing on another
+    #  button later in the same frame neither cancels the left press nor presses its own button.
+    pressed = []
+    for handlerName in handlerNames.values():
+        setattr(game, handlerName, recorder(pressed, handlerName))
+    renderOneFrame(game, monkeypatch, screenName)
+    firstLabel, lastLabel = handlerNames
+    first, last = buttonCentre(game, firstLabel), buttonCentre(game, lastLabel)
+
+    runScreen(game, monkeypatch, screenName, [[press(first), press(last, button=3), press(last, button=4)], []])
+
+    assert pressed == [handlerNames[firstLabel]]
+
+
 @pytest.mark.parametrize("handlerName,attributeName", CELLS)
 def test_a_tap_on_a_cell_claims_it(game, monkeypatch, handlerName, attributeName):
     game.drawGrid = tictactoe.TicTacToe.drawGrid.__get__(game)
@@ -694,6 +711,40 @@ def test_a_tap_on_a_cell_claims_it(game, monkeypatch, handlerName, attributeName
     expected = {attribute: "" for attribute in CELL_ATTRIBUTES}
     expected[attributeName] = "X"
     assert readBoard(game) == expected
+
+
+def test_a_tap_on_the_lines_between_the_cells_claims_nothing(game, monkeypatch):
+    #  The board is a black square showing through 25 px gaps between the slots. A tap in the
+    #  middle of each gap, and where two gaps cross, lands on no slot, so no cell is claimed and
+    #  the computer does not move.
+    stepsTaken = []
+    game.drawGrid = tictactoe.TicTacToe.drawGrid.__get__(game)
+    game.computerTurn = recorder(stepsTaken, "computerTurn")
+    drawBoard(game)
+    columns = sorted(set(xpos for xpos, _, _, _, _, _ in game.buttons))
+    rows = sorted(set(ypos for _, ypos, _, _, _, _ in game.buttons))
+    gapsAcross = [xpos + 100 + 12 for xpos in columns[:2]]
+    gapsDown = [ypos + 100 + 12 for ypos in rows[:2]]
+    taps = ([(x, row + 50) for x in gapsAcross for row in rows]
+            + [(column + 50, y) for y in gapsDown for column in columns]
+            + [(x, y) for x in gapsAcross for y in gapsDown])
+    game.moves = 0
+
+    eventBatches = [[press(tap), release(tap)] for tap in taps]
+
+    def fakeEventGet():
+        if not eventBatches:
+            raise ScreenLoopExit()
+        return eventBatches.pop(0)
+
+    monkeypatch.setattr(tictactoe.pygame.event, "get", fakeEventGet)
+    with pytest.raises(ScreenLoopExit):
+        asyncio.run(tictactoe.TicTacToe.gridScreen(game))
+
+    assert len(taps) == 16
+    assert readBoard(game) == {attribute: "" for attribute in CELL_ATTRIBUTES}
+    assert game.moves == 0
+    assert stepsTaken == []
 
 
 @pytest.mark.parametrize("screenName", [screenName for screenName, _ in BUTTON_SCREENS])
