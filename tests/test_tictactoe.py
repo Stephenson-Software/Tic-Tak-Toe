@@ -332,6 +332,21 @@ def test_computer_turn_does_not_move_on_a_full_board(game):
     assert game.moves == 9
 
 
+def test_the_players_last_move_goes_to_the_tie_screen_without_the_computers_pause(game, pauses):
+    #  The player's move that fills the board leaves the computer nothing to do, so the tie screen
+    #  opens without the computer's one-second pause first. computerTurn checks the board both
+    #  before and after its move, so the tie screen is reached twice here; in production the first
+    #  one never returns. Current behavior.
+    setBoard(game, ["X", "O", "X", "X", "O", "O", "O", "X", ""])
+
+    asyncio.run(game.bottomRight())
+
+    assert readBoard(game) == dict(zip(CELL_ATTRIBUTES, ["X", "O", "X", "X", "O", "O", "O", "X", "X"]))
+    assert game.moves == 9
+    assert pauses == []
+    assert game.screensShown == ["tie", "tie"]
+
+
 @pytest.mark.parametrize("screenName,headline", END_SCREENS)
 def test_end_screen_draws_its_own_headline(game, monkeypatch, screenName, headline):
     calls = renderOneFrame(game, monkeypatch, screenName)
