@@ -534,6 +534,17 @@ def test_grid_screen_redraws_the_board_once_per_frame(game, monkeypatch):
     assert draws == [("fill", game.white), "drawGrid"] * 2
 
 
+def test_the_grid_screen_offers_only_the_nine_cells(game, monkeypatch):
+    #  Unlike the title and end screens, the board has no Quit button: on the desktop, closing
+    #  the window is the only way to leave a game in progress. The fixture's drawGrid stand-in is
+    #  removed so the real board is drawn.
+    del game.drawGrid
+
+    renderOneFrame(game, monkeypatch, "gridScreen")
+
+    assert [function for _, _, _, _, _, function in game.buttons] == [getattr(game, handlerName) for handlerName, _ in CELLS]
+
+
 @pytest.mark.parametrize("screenName", [screenName for screenName, _ in BUTTON_SCREENS])
 def test_every_frame_clears_the_window_to_white_before_drawing(game, monkeypatch, screenName):
     #  The end screens open over the board the player just finished, so a frame that did not start
