@@ -448,7 +448,7 @@ def test_drawing_the_board_puts_it_on_screen(game, monkeypatch):
 
 
 def test_the_board_is_black_behind_white_cells_marked_in_black(game):
-    #  The black board shows between the cells as the grid lines; a mark drawn in the colour of
+    #  The black board shows between the cells as the grid lines; a mark drawn in the color of
     #  its own cell would be invisible.
     calls = drawBoard(game)
 
@@ -459,12 +459,12 @@ def test_the_board_is_black_behind_white_cells_marked_in_black(game):
 @pytest.mark.parametrize("screenName", [screenName for screenName, _ in BUTTON_SCREENS])
 def test_screens_draw_black_headlines_and_black_buttons_with_white_labels(game, monkeypatch, screenName):
     #  Every frame is cleared to white, so a headline or a button drawn in white would vanish, and
-    #  a label drawn in the colour of its button could not be read.
+    #  a label drawn in the color of its button could not be read.
     calls = renderOneFrame(game, monkeypatch, screenName)
 
     assert [call[2] for call in calls if call[0] == "drawText"] == [game.black]
-    buttonColours = [(call[8], call[9]) for call in calls if call[0] == "drawButton"]
-    assert buttonColours == [(game.black, game.white)] * 2
+    buttonColors = [(call[8], call[9]) for call in calls if call[0] == "drawButton"]
+    assert buttonColors == [(game.black, game.white)] * 2
 
 
 @pytest.mark.parametrize("handlerName,attributeName", CELLS)
