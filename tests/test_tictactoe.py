@@ -60,13 +60,13 @@ class RecordingGraphik:
         self.calls = []
 
     def drawRectangle(self, xpos, ypos, width, height, color):
-        self.calls.append(("drawRectangle", xpos, ypos, width, height))
+        self.calls.append(("drawRectangle", xpos, ypos, width, height, color))
 
     def drawText(self, text, xpos, ypos, size, color):
-        self.calls.append(("drawText", text))
+        self.calls.append(("drawText", text, color))
 
     def drawButton(self, xpos, ypos, width, height, colorBox, colorText, sizeText, text, function):
-        self.calls.append(("drawButton", text, function, width, sizeText, xpos, ypos, height))
+        self.calls.append(("drawButton", text, function, width, sizeText, xpos, ypos, height, colorBox, colorText))
 
 
 class Finished:
@@ -414,7 +414,7 @@ def test_grid_slots_form_a_three_by_three_grid_inside_the_board(game):
 
     board = [call for call in calls if call[0] == "drawRectangle"]
     assert len(board) == 1
-    _, boardX, boardY, boardWidth, boardHeight = board[0]
+    _, boardX, boardY, boardWidth, boardHeight, _ = board[0]
 
     slots = [call for call in calls if call[0] == "drawButton"]
     positions = [(call[5], call[6]) for call in slots]
@@ -445,6 +445,26 @@ def test_drawing_the_board_puts_it_on_screen(game, monkeypatch):
     tictactoe.TicTacToe.drawGrid(game)
 
     assert [call[0] for call in calls] == ["drawRectangle"] + ["drawButton"] * 9 + ["update"]
+
+
+def test_the_board_is_black_behind_white_cells_marked_in_black(game):
+    #  The black board shows between the cells as the grid lines; a mark drawn in the color of
+    #  its own cell would be invisible.
+    calls = drawBoard(game)
+
+    assert [call[5] for call in calls if call[0] == "drawRectangle"] == [game.black]
+    assert [(call[8], call[9]) for call in calls if call[0] == "drawButton"] == [(game.white, game.black)] * 9
+
+
+@pytest.mark.parametrize("screenName", [screenName for screenName, _ in BUTTON_SCREENS])
+def test_screens_draw_black_headlines_and_black_buttons_with_white_labels(game, monkeypatch, screenName):
+    #  Every frame is cleared to white, so a headline or a button drawn in white would vanish, and
+    #  a label drawn in the color of its button could not be read.
+    calls = renderOneFrame(game, monkeypatch, screenName)
+
+    assert [call[2] for call in calls if call[0] == "drawText"] == [game.black]
+    buttonColors = [(call[8], call[9]) for call in calls if call[0] == "drawButton"]
+    assert buttonColors == [(game.black, game.white)] * 2
 
 
 @pytest.mark.parametrize("handlerName,attributeName", CELLS)
