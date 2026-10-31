@@ -598,6 +598,26 @@ def test_every_frame_is_capped_at_sixty_frames_per_second(game, monkeypatch, scr
     assert ticks == [60, 60, 60]
 
 
+@pytest.mark.parametrize("screenName,handlerNames", BUTTON_SCREENS)
+def test_every_frame_is_put_on_screen_before_its_press_is_handled(game, monkeypatch, screenName, handlerNames):
+    #  The title and end screens draw only through Graphik, which draws to the window's surface
+    #  without showing it, so endFrame must put each frame on screen. It does so before the frame's
+    #  press is handled, so the button a press lands on is the one the player could see.
+    renderOneFrame(game, monkeypatch, screenName)
+    label, handlerName = next(iter(handlerNames.items()))
+    centre = buttonCentre(game, label)
+    #  runScreen gives the game a fresh RecordingGraphik, so its log is looked up at call time.
+    setattr(game, handlerName, lambda: game.graphik.calls.append(("pressed", label)) or Finished())
+    monkeypatch.setattr(tictactoe.pygame.display, "update", lambda: game.graphik.calls.append(("update",)))
+
+    calls = runScreen(game, monkeypatch, screenName, [[], [press(centre), release(centre)], []])
+
+    steps = [call if call[0] == "pressed" else call[0] for call in calls]
+    frameDraws = steps[:steps.index("update")]
+    assert frameDraws
+    assert steps == (frameDraws + ["update"]) * 2 + [("pressed", label)] + frameDraws + ["update"]
+
+
 @pytest.mark.parametrize("screenName", [screenName for screenName, _ in END_SCREENS])
 def test_end_screen_pauses_a_second_before_it_shows(game, monkeypatch, pauses, screenName):
     renderOneFrame(game, monkeypatch, screenName)
