@@ -614,7 +614,7 @@ def test_every_frame_is_put_on_screen_before_its_press_is_handled(game, monkeypa
 
     steps = [call if call[0] == "pressed" else call[0] for call in calls]
     frameDraws = steps[:steps.index("update")]
-    assert frameDraws and "update" not in frameDraws
+    assert frameDraws
     assert steps == (frameDraws + ["update"]) * 2 + [("pressed", label)] + frameDraws + ["update"]
 
 
