@@ -866,6 +866,61 @@ def test_end_screen_discards_presses_made_during_its_pause(game, monkeypatch, pa
     assert steps[:2] == [("sleep", 1), ("clear", (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP))]
 
 
+def test_computer_discards_presses_made_during_its_pause(game, monkeypatch):
+    #  Only the presses are cleared, so closing the window during the pause still counts, and
+    #  they are cleared once the pause is over but before the computer's mark goes down.
+    steps = []
+
+    async def recordPause(seconds):
+        steps.append(("sleep", seconds, game.topMiddleL))
+
+    def recordClear(eventtype=None):
+        steps.append(("clear", eventtype, game.topMiddleL))
+
+    monkeypatch.setattr(tictactoe.asyncio, "sleep", recordPause)
+    monkeypatch.setattr(tictactoe.pygame.event, "clear", recordClear)
+    monkeypatch.setattr(tictactoe.random, "randint", lambda low, high: 2)
+
+    asyncio.run(game.computerTurn())
+
+    assert steps == [("sleep", 1, ""), ("clear", (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP), "")]
+
+
+def test_a_tap_during_the_computers_pause_is_not_played_as_the_next_move(game, monkeypatch):
+    #  Played on pygame's real event queue: the player takes the centre cell and taps the
+    #  top-right cell while the computer is pausing. That tap must not claim the cell once the
+    #  grid screen reads the queue again, because the computer's mark had not been seen yet.
+    game.drawGrid = tictactoe.TicTacToe.drawGrid.__get__(game)
+    drawBoard(game)
+    cells = {function.__name__: (xpos + 50, ypos + 50) for xpos, ypos, _, _, _, function in game.buttons}
+    rolls = [9, 7]
+    framesLeft = [5]
+
+    def postPress(pos):
+        pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=pos, button=1))
+
+    async def fakeSleep(seconds):
+        if seconds == 1:
+            postPress(cells["topRight"])
+        else:
+            framesLeft[0] -= 1
+            if framesLeft[0] == 0:
+                raise ScreenLoopExit()
+
+    monkeypatch.setattr(tictactoe.asyncio, "sleep", fakeSleep)
+    monkeypatch.setattr(tictactoe.random, "randint", lambda low, high: rolls.pop(0))
+    pygame.event.clear()
+    postPress(cells["middleMiddle"])
+
+    with pytest.raises(ScreenLoopExit):
+        asyncio.run(tictactoe.TicTacToe.gridScreen(game))
+
+    assert game.middleMiddleL == "X"
+    assert game.bottomRightL == "O"
+    assert game.topRightL == ""
+    assert game.moves == 2
+
+
 @pytest.mark.parametrize("screenName", [screenName for screenName, _ in END_SCREENS])
 def test_end_screen_stops_looping_once_play_again_resets_the_moves(game, monkeypatch, screenName):
     #  The end screens loop while moves > 0, and restart sets moves back to 0 before it awaits

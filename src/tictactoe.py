@@ -97,9 +97,11 @@ class TicTacToe:
         return pressPos
 
     def discardPressesMadeDuringThePause(self):
-        # The end screens open after a one-second pause, during which the board is still shown;
-        # a tap made then was aimed at the board, and must not press the button that is drawn
-        # where it landed (Play Again covers the bottom-middle cell)
+        # The board is still shown during a one-second pause, and a tap made then was aimed at the
+        # board as it stood. Left queued, it would be handled when the pause ends: after the
+        # computer's pause it would be played as the player's next move before the computer's
+        # mark was seen, and after an end screen's pause it would press the button drawn where it
+        # landed (Play Again covers the bottom-middle cell)
         pygame.event.clear((pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP))
 
     def beginFrame(self):
@@ -191,6 +193,7 @@ class TicTacToe:
         
         if self.moves != 9:
             await asyncio.sleep(1)
+            self.discardPressesMadeDuringThePause()
 
             went = False
             while (went == False):
