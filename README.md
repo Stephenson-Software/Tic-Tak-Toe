@@ -15,7 +15,7 @@ python3 -m http.server 8000 --bind 127.0.0.1 --directory src/build/web
 ```
 then open http://127.0.0.1:8000 (pygbag looks for its packages on a local CDN when the page is served from `localhost`, so the address matters). `src/main.py` is the browser entry point; `src/tictactoe.py` stays the desktop one. The build output in `src/build/` is not committed.
 
-For the browser, every screen draws one frame per pass and yields to the event loop with `await asyncio.sleep(0)`, and the one-second pauses use `await asyncio.sleep(1)`, so the screens, the cell handlers and the win check are coroutines. A button is pressed by the left-button press event that lands on it, once per click or tap (a browser tap delivers its press and release in the same frame, so the vendored `src/Graphik.py`'s held-button check is not used for pressing). Presses made during the one-second pause before an end screen are discarded, because Play Again is drawn over the bottom-middle cell.
+For the browser, every screen draws one frame per pass and yields to the event loop with `await asyncio.sleep(0)`, and the one-second pauses use `await asyncio.sleep(1)`, so the screens, the cell handlers and the win check are coroutines. A button is pressed by the left-button press event that lands on it, once per click or tap (a browser tap delivers its press and release in the same frame, so the vendored `src/Graphik.py`'s held-button check is not used for pressing). Presses made during the one-second pause before an end screen are discarded, because Play Again is drawn over the bottom-middle cell. Presses made during the computer's one-second pause are discarded too, so a tap is not played as the next move before the computer's mark has been seen.
 
 ## Getting Started
 ### Requirements
