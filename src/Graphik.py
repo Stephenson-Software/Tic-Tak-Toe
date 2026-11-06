@@ -6,15 +6,22 @@ import pygame
 class Graphik:
     def __init__(self, gameDisplay):
         self.gameDisplay = gameDisplay
+        self.fonts = {}
 
     def getGameDisplay(self):
         return self.gameDisplay
+
+    def getFont(self, size):
+        # every text on every frame needs a font, and opening one is the costliest part of a frame
+        if size not in self.fonts:
+            self.fonts[size] = pygame.font.Font('freesansbold.ttf', size)
+        return self.fonts[size]
 
     def drawRectangle(self, xpos, ypos, width, height, color):
         pygame.draw.rect(self.gameDisplay, color, [xpos, ypos, width, height])
 
     def drawText(self, text, xpos, ypos, size, color):
-        myFont = pygame.font.Font('freesansbold.ttf', size)
+        myFont = self.getFont(size)
         textSurface = myFont.render(text, True, color)
         textRectangle = textSurface.get_rect()
         textRectangle.center = ((xpos, ypos))
