@@ -59,12 +59,13 @@ def test_constructor_has_exactly_one_definition():
     assert source.count("def __init__(") == 1
 
 
-def test_constructor_assigns_only_the_game_display():
+def test_constructor_assigns_only_the_game_display_and_an_empty_font_cache():
     #  The color attributes of the removed, shadowed __init__ were never present on an
-    #  instance, so nothing is expected here beyond the display that was passed in.
+    #  instance, so nothing is expected here beyond the display that was passed in and the
+    #  cache that getFont fills. No font is opened until one is needed.
     graphik = Graphik(FakeDisplay())
 
-    assert list(vars(graphik)) == ["gameDisplay"]
+    assert vars(graphik) == {"gameDisplay": graphik.gameDisplay, "fonts": {}}
 
 
 def test_get_version_is_not_offered():
@@ -93,6 +94,56 @@ def test_text_is_centered_on_the_given_position():
 
     assert len(display.blits) == 1
     assert display.blits[0][1].center == (250, 325)
+
+
+def recordFontOpens(monkeypatch):
+    realFont = pygame.font.Font
+    opens = []
+
+    def openFont(name, size):
+        opens.append((name, size))
+        return realFont(name, size)
+
+    monkeypatch.setattr(graphikModule.pygame.font, "Font", openFont)
+    return opens
+
+
+def test_each_text_size_opens_its_font_only_once(monkeypatch):
+    #  Every frame redraws every text, so opening a font per text would repeat on each frame.
+    pygame.font.init()
+    opens = recordFontOpens(monkeypatch)
+    graphik = Graphik(RecordingDisplay())
+
+    for _ in range(3):
+        graphik.drawText("Start", 400, 300, 20, (0, 0, 0))
+        graphik.drawText("Quit", 400, 500, 20, (0, 0, 0))
+        graphik.drawText("Play Again", 400, 400, 16, (0, 0, 0))
+
+    assert opens == [("freesansbold.ttf", 20), ("freesansbold.ttf", 16)]
+
+
+def test_text_is_rendered_at_the_size_it_asks_for_after_another_size_was_drawn():
+    #  The cache is keyed by size: a shared font would draw the second text at the first size.
+    pygame.font.init()
+    display = RecordingDisplay()
+    graphik = Graphik(display)
+
+    graphik.drawText("X", 0, 0, 64, (0, 0, 0))
+    graphik.drawText("X", 0, 0, 16, (0, 0, 0))
+
+    assert display.blits[1][0].get_size() == pygame.font.Font("freesansbold.ttf", 16).size("X")
+
+
+def test_a_new_graphik_opens_its_own_fonts(monkeypatch):
+    #  A font outlives neither pygame.quit nor pygame.font.quit, so the cache belongs to the
+    #  instance rather than to the module: a later Graphik must not inherit a dead font.
+    pygame.font.init()
+    opens = recordFontOpens(monkeypatch)
+
+    Graphik(RecordingDisplay()).drawText("Start", 400, 300, 20, (0, 0, 0))
+    Graphik(RecordingDisplay()).drawText("Start", 400, 300, 20, (0, 0, 0))
+
+    assert len(opens) == 2
 
 
 def test_button_draws_its_box_then_its_label_centered_inside_it(monkeypatch):
