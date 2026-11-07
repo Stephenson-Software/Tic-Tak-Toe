@@ -46,7 +46,7 @@ BUTTON_SCREENS = [
     ("playerWin", {"Play Again": "restart", "Quit": "exit"}),
     ("computerWin", {"Play Again": "restart", "Quit": "exit"}),
     ("tie", {"Play Again": "restart", "Quit": "exit"}),
-    ("titleScreen", {"Start": "gridScreen", "Quit": "exit"}),
+    ("titleScreen", {"Start": "startGame", "Quit": "exit"}),
 ]
 
 
@@ -919,6 +919,85 @@ def test_a_tap_during_the_computers_pause_is_not_played_as_the_next_move(game, m
     assert game.bottomRightL == "O"
     assert game.topRightL == ""
     assert game.moves == 2
+
+
+def test_start_shows_the_board_then_pauses_then_discards_presses_before_the_grid_screen(game, monkeypatch):
+    #  The board is drawn first so that the player is not left looking at the title screen, and
+    #  only the presses are cleared, so closing the window during the pause still counts.
+    steps = []
+
+    async def recordPause(seconds):
+        steps.append(("sleep", seconds))
+
+    game.gameDisplay = types.SimpleNamespace(fill=lambda color: steps.append(("fill", color)))
+    game.drawGrid = lambda: steps.append("drawGrid")
+    game.gridScreen = lambda: steps.append("gridScreen") or Finished()
+    monkeypatch.setattr(tictactoe.asyncio, "sleep", recordPause)
+    monkeypatch.setattr(tictactoe.pygame.event, "clear", lambda eventtype=None: steps.append(("clear", eventtype)))
+
+    asyncio.run(tictactoe.TicTacToe.startGame(game))
+
+    assert steps == [("fill", game.white), "drawGrid", ("sleep", 0.5),
+                     ("clear", (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP)), "gridScreen"]
+
+
+def startGameWithPresses(game, monkeypatch, sleepsPressedDuring):
+    #  Played on pygame's real event queue from the real title screen: Start is pressed, and the
+    #  same spot is pressed again during each numbered asyncio.sleep the game awaits, counted from
+    #  0 (the title screen's own frame). Every sleep counts alike, so the presses arrive at the
+    #  same point whether or not Start pauses. The screen loop is broken after a few more frames.
+    game.drawGrid = tictactoe.TicTacToe.drawGrid.__get__(game)
+    with monkeypatch.context() as context:
+        renderOneFrame(game, context, "titleScreen")
+    game.moves = 0
+    start = buttonCentre(game, "Start")
+    rolls = [1]
+    sleepsSeen = [0]
+
+    def postPress(pos):
+        pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=pos, button=1))
+
+    async def fakeSleep(seconds):
+        if sleepsSeen[0] in sleepsPressedDuring:
+            postPress(start)
+        sleepsSeen[0] += 1
+        if sleepsSeen[0] == 8:
+            raise ScreenLoopExit()
+
+    monkeypatch.setattr(tictactoe.asyncio, "sleep", fakeSleep)
+    monkeypatch.setattr(tictactoe.random, "randint", lambda low, high: rolls.pop(0))
+    pygame.event.clear()
+    postPress(start)
+
+    with pytest.raises(ScreenLoopExit):
+        asyncio.run(tictactoe.TicTacToe.titleScreen(game))
+
+
+def test_the_second_press_of_a_double_click_on_start_plays_no_move(game, monkeypatch):
+    #  Sleep 1 is the pause that follows Start.
+    startGameWithPresses(game, monkeypatch, [1])
+
+    assert game.middleMiddleL == ""
+    assert game.moves == 0
+
+
+def test_a_press_after_the_start_pause_plays_a_move(game, monkeypatch):
+    #  The pause must not swallow the player's real first move: sleep 2 is the grid screen's first
+    #  frame, and the press is read on its second.
+    startGameWithPresses(game, monkeypatch, [2])
+
+    assert game.middleMiddleL == "X"
+    assert game.topLeftL == "O"
+    assert game.moves == 2
+
+
+def test_start_covers_the_centre_cell(game, monkeypatch):
+    #  The overlap the start pause guards against.
+    drawBoard(game)
+    cell = [(xpos, ypos, width, height) for xpos, ypos, width, height, _, function in game.buttons if function == game.middleMiddle][0]
+    renderOneFrame(game, monkeypatch, "titleScreen")
+
+    assert tictactoe.pressLandedOn(buttonCentre(game, "Start"), *cell)
 
 
 @pytest.mark.parametrize("screenName", [screenName for screenName, _ in END_SCREENS])
