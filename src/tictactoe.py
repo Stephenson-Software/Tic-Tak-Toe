@@ -28,6 +28,7 @@ def pressLandedOn(pressPos, xpos, ypos, width, height):
 #  @since August 6th, 2022
 class TicTacToe:
     framesPerSecond = 60
+    startPauseSeconds = 0.5
 
     def __init__(self):
         if runningInBrowser():
@@ -387,6 +388,17 @@ class TicTacToe:
         if self.moves == 9:
             await self.tie()
 
+    async def startGame(self):
+        # The Start button is drawn over the centre cell, and a press made after the board appears
+        # is a new press to the grid screen, so the second press of a double-click on Start would
+        # play the player's first move. Half a second covers a double-click, and it is too short
+        # for a player to have seen the board and aimed at a cell
+        self.beginFrame()
+        self.drawGrid()
+        await asyncio.sleep(self.startPauseSeconds)
+        self.discardPressesMadeDuringThePause()
+        await self.gridScreen()
+
     async def gridScreen(self):
         running = True
 
@@ -407,7 +419,7 @@ class TicTacToe:
             self.beginFrame()
             self.graphik.drawText("Tic Tac Toe", self.displayWidth//2, self.displayHeight//4, 64, self.black)
             middleButtonXPos = self.displayWidth//2 - 50
-            self.drawButton(middleButtonXPos, self.displayHeight - 300, 100, 50, self.black, self.white, 20, "Start", self.gridScreen)
+            self.drawButton(middleButtonXPos, self.displayHeight - 300, 100, 50, self.black, self.white, 20, "Start", self.startGame)
             self.drawQuitButton(middleButtonXPos, self.displayHeight - 100, 100, 50, 20)
 
             await self.endFrame(pressPos)
