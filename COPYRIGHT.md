@@ -4,7 +4,7 @@ This project, **Tic-Tak-Toe**, is developed and maintained as part of **Preponde
 
 ## Copyright Holder
 
-**Copyright © 2022-2025 Daniel McCoy Stephenson. All rights reserved.**
+**Copyright © 2022-2026 Daniel McCoy Stephenson. All rights reserved.**
 
 ## Licensing
 
