@@ -59,9 +59,10 @@ def test_the_build_checks_the_page_has_the_3d_toggle_and_the_relay():
 def test_the_pinned_graphik_has_the_browser_3d_view():
     # grid3d.web (the relay view, the template and the relay fetcher) came with graphik 0.5.0;
     # 0.5.1's template starts in 3D (remembering a player's 2D), fetches the relay's scripts only
-    # when 3D is wanted, keeps the page from scrolling and says where its button is (buttonArea)
+    # when 3D is wanted, keeps the page from scrolling and says where its button is (buttonArea);
+    # 0.5.2 frames the board for a phone held upright
     version = re.search(r"graphik/archive/refs/tags/v(\d+)\.(\d+)\.(\d+)\.zip", REQUIREMENTS)
-    assert version and tuple(map(int, version.groups())) >= (0, 5, 1)
+    assert version and tuple(map(int, version.groups())) >= (0, 5, 2)
 
 
 def test_the_browser_build_starts_in_3d_as_the_desktop_does():

@@ -163,3 +163,35 @@ def test_the_recorder_keeps_text_and_buttons_and_clears_per_frame():
     assert recorder.buttons == [(1, 2, 3, 4, (0, 0, 0), (255, 255, 255), 20, "Start")]
     recorder.clear()
     assert recorder.texts == [] and recorder.buttons == []
+
+
+# -- a phone held upright (graphik 0.5.2 frames the board for the window's shape)
+
+
+def boardBox(width, height):
+    from preponderous.graphik.grid3d import projectToScreen
+
+    camera = scene.camera(width, height)
+    half = scene.COLUMNS / 2.0 + scene.THEME.frameWidth
+    points = [
+        projectToScreen(camera, (x, y, z), width, height)
+        for x in (-half, half)
+        for z in (-half, half)
+        for y in (-scene.THEME.tileHeight, 0.3)
+    ]
+    xs, ys = [p[0] for p in points], [p[1] for p in points]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+@pytest.mark.parametrize("size", [(390, 844), (844, 390), (1280, 800), (800, 600)])
+def test_the_whole_board_is_on_screen_at_any_shape(size):
+    left, top, right, bottom = boardBox(*size)
+    assert left >= 0 and top >= 0 and right <= size[0] and bottom <= size[1]
+
+
+def test_on_a_phone_held_upright_the_board_fills_the_width():
+    left, top, right, bottom = boardBox(390, 844)
+    assert right - left >= 0.85 * 390
+    # and a tap on a cell's middle picks that cell
+    for cell in [(0, 0), (1, 1), (2, 2)]:
+        assert scene.pickCell(scene.cellCenterOnScreen(cell, 390, 844), 390, 844) == cell
