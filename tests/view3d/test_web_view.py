@@ -54,6 +54,10 @@ class Page:
         self.relay = Relay(state=relayState)
         self.toggles = []
         self.opened = 0
+        self.area = None  # where the 2D/3D button is (buttonArea)
+
+    def buttonArea(self):
+        return self.area
 
     def wants3D(self):
         return self.on
@@ -281,6 +285,80 @@ def test_the_players_mark_is_sent_before_the_computers_pause(game, page):
     assert len(decoded(page, grid3dweb.BOARD)) == before + 1
 
 
+# -- the page starts in 3D (graphik 0.5.1's template)
+
+
+def test_a_page_that_starts_in_3d_shows_the_first_screen_in_3d_and_takes_the_first_tap(game, page, monkeypatch):
+    started = []
+
+    async def startGame():
+        started.append(True)
+
+    monkeypatch.setattr(game, "startGame", startGame)
+    page.on = True  # before the game has drawn anything: no press on the button
+    oneFrame(game, "titleScreen")
+    assert game.view3d is not None and page.opened == 1
+    assert hudText(page) == ["Tic Tac Toe", "Start"]
+    page.relay.events = press(pointOn(game, "Start"), pointer="touch")
+    asyncio.run(game.pressButton(game.readEvents()))
+    assert started == [True]
+
+
+# -- the page's 2D/3D button
+
+
+def test_the_buttons_area_is_read_on_opening_and_on_a_resize(game, page):
+    page.area = (330, 8, 52, 36)
+    on3D(game, page)
+    assert game.keepClear == (330, 8, 52, 36)
+    page.area = (780, 8, 52, 36)
+    page.relay.events = [event(grid3dweb.EVENT_RESIZED, width=844, height=390)]
+    game.readEvents()
+    assert game.keepClear == (780, 8, 52, 36)
+
+
+def test_headlines_and_buttons_keep_out_from_under_the_pages_button(game, page, monkeypatch):
+    # a button sitting over the title and Start (wider than any real one), so both must move
+    width, height = PHONE
+    page.area = (0, 0, width, 480)
+    started = []
+
+    async def startGame():
+        started.append(True)
+
+    monkeypatch.setattr(game, "startGame", startGame)
+    on3D(game, page)
+    for label in hud(page)["labels"]:
+        assert label["y"] >= 480
+    for p in hud(page)["panels"][1:]:  # past the screen's dimming overlay
+        assert p["rect"][1] >= 480
+    # the press follows Start where it is drawn
+    x, y, w, h = scene.buttonRect(game.frameButtons()[0][0], width, height, game.keepClear)
+    page.relay.events = press((x + w / 2, y + h / 2))
+    asyncio.run(game.pressButton(game.readEvents()))
+    assert started == [True]
+
+
+@pytest.mark.parametrize("screen", ["titleScreen", "playerWin", "computerWin", "tie"])
+@pytest.mark.parametrize("size,area", [(PHONE, (330, 8, 52, 36)), (DESKTOP, (1220, 8, 52, 36))])
+def test_no_text_runs_under_the_button_where_the_template_puts_it(game, page, screen, size, area):
+    setMarks(game, ["XXX", "OO ", "   "], 5)
+    page.size_, page.area = size, area
+    on3D(game, page, screen)
+    ax, ay, aw, ah = area
+    for label in hud(page)["labels"]:
+        right = label["x"] + label["pixelSize"] * len(label["text"])
+        bottom = label["y"] + label["pixelSize"]
+        assert right <= ax or label["x"] >= ax + aw or bottom <= ay or label["y"] >= ay + ah
+
+
+def test_layouts_are_unchanged_when_the_button_is_out_of_the_way():
+    title = scene.Button(350, 300, 100, 50, "Start", (0, 0, 0), (255, 255, 255), 20)
+    assert scene.buttonRect(title, *PHONE, keepClear=(330, 8, 52, 36)) == scene.buttonRect(title, *PHONE)
+    assert scene.headlineLabel("Tic Tac Toe", 400, 150, 64, *PHONE, keepClear=(330, 8, 52, 36)) == \
+        scene.headlineLabel("Tic Tac Toe", 400, 150, 64, *PHONE)
+
+
 # -- presses on the 3D view reach the 2D game's handlers
 
 
@@ -473,6 +551,32 @@ def test_a_view_that_fails_while_loading_says_why_and_the_notice_goes(monkeypatc
     clock.now += web.NOTICE_SECONDS + 1
     oneFrame(game, "titleScreen")
     assert drawn and not any(text.startswith("No 3D view") for text in drawn)
+
+
+def test_a_failure_the_page_closed_itself_still_says_why(monkeypatch):
+    # the page closes the relay when it fails (its state is idle again) and keeps the reason
+    page = Page(relayState="loading")
+    page.unavailable = lambda: "the 3D engine could not be downloaded"
+    game = WebTicTacToe(page=page, clock=Clock())
+    on3D(game, page)
+    page.relay.status = "idle"
+    page.on = False
+    oneFrame(game, "titleScreen")
+    assert game.notice == unavailableLines("the 3D engine could not be downloaded")
+
+
+def test_a_3d_view_that_failed_before_the_game_began_is_explained_once(monkeypatch):
+    page = Page()
+    page.unavailable = lambda: "the 3D engine could not be downloaded"
+    game = WebTicTacToe(page=page, clock=Clock())
+    drawn = []
+    monkeypatch.setattr(game.graphik.graphik, "drawText", lambda text, *args: drawn.append(text))
+    oneFrame(game, "titleScreen")
+    assert game.view3d is None
+    assert "No 3D view here: the 3D engine could not be downloaded." in drawn
+    game.notice = None
+    oneFrame(game, "titleScreen")
+    assert game.notice is None
 
 
 def test_unavailable_lines_are_plain_words():

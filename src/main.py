@@ -2,8 +2,8 @@
 # folder and runs main.py. The desktop entry point stays src/tictactoe.py.
 #
 # In a browser the game is WebTicTacToe: the same 2D game, which also draws itself in the
-# page's 3D view when the player turns that on (strata_view/web.py). The 3D view's files are
-# downloaded only then.
+# page's 3D view (strata_view/web.py). The page starts in 3D, as the desktop does, unless the
+# player chose 2D (graphik's page template remembers it) or the address says ?view=2d.
 import asyncio
 import sys
 
@@ -15,7 +15,7 @@ from tictactoe import TicTacToe
 
 
 def chooseGame(platform=None):
-    # The game class to run: WebTicTacToe in a browser, so the page's 3D toggle works;
+    # The game class to run: WebTicTacToe in a browser, so the page's 2D/3D button works;
     # TicTacToe anywhere else, or when graphik's 3D view isn't in the build (then the toggle
     # is marked unavailable, with the reason)
     platform = sys.platform if platform is None else platform

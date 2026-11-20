@@ -1,10 +1,12 @@
 """Tic Tac Toe's 3D view in the browser (the arcade's pygbag build).
 
-The browser game is the 2D game, and the page's 3D toggle (graphik's pygbag
-template) only changes how it is shown. WebTicTacToe draws every frame on
-the 2D canvas as always, and its Graphik also records what each screen drew
-(its headline, its buttons); while the toggle is on, that frame is sent to
-the page's Strata grid relay as the same scene the desktop 3D window draws
+The browser game is the 2D game, and the page's 2D/3D button (graphik's
+pygbag template) only changes how it is shown. The page starts in 3D, as
+the desktop game does, unless the player chose 2D there before (the page
+remembers it) or the address says ?view=2d. WebTicTacToe draws every frame
+on the 2D canvas as always, and its Graphik also records what each screen
+drew (its headline, its buttons); while 3D is on, that frame is sent to the
+page's Strata grid relay as the same scene the desktop 3D window draws
 (scene.buildScene, through graphik's Grid3DWebView). So every screen,
 button, pause and rule is the 2D game's own, and the view can be switched
 either way at any moment, in the middle of a game too:
@@ -17,10 +19,13 @@ either way at any moment, in the middle of a game too:
 - the mouse's position over the 3D view lifts the button or tile under it,
   as graphik lifts a 2D button under the cursor (a touch has no hover);
 - presses made during a pause are dropped in 3D as in 2D, and the 3D view
-  keeps following the toggle while the game pauses.
+  keeps following the button while the game pauses;
+- the headlines and buttons keep out from under the page's 2D/3D button
+  (graphik's buttonArea(), read when the 3D view opens and on a resize).
 
-Nothing of the 3D view is downloaded until the player asks for it, and if
-it can't load the 2D view stays and the game says why, in plain words.
+If the 3D view can't start, the 2D view stays and the page and the game say
+why, in plain words; a page in 2D downloads nothing of the 3D view until
+the button asks for it.
 """
 
 import asyncio
@@ -49,19 +54,8 @@ PAUSE_STEP_SECONDS = 0.05
 
 
 class BrowserPage:
-    """The page around the game under pygbag: its 3D toggle, its size and
-    its grid relay (graphik's grid3d.web)."""
-
-    def __init__(self):
-        # The page never scrolls. Without this a phone's browser widens it
-        # once the 3D canvas shows (to fit pygbag's 50000-pixel-wide
-        # measuring element), which pushes the 2D/3D button off screen.
-        try:
-            document = _platformWindow().document
-            for element in (document.documentElement, document.body):
-                element.style.overflow = "hidden"
-        except Exception as error:  # a page without them: nothing to clip
-            print("Page left as it is:", error)
+    """The page around the game under pygbag: its 2D/3D button, its size
+    and its grid relay (graphik's grid3d.web)."""
 
     def wants3D(self):
         return grid3dweb.wants3D()
@@ -72,6 +66,17 @@ class BrowserPage:
     def size(self):
         window = _platformWindow()
         return int(window.innerWidth), int(window.innerHeight)
+
+    def unavailable(self):
+        """Why the page marked its 3D view unavailable, or "" (its toggle
+        keeps the reason after the relay itself is closed)."""
+        toggle = grid3dweb.pageObject("Graphik3D")
+        return str(toggle.unavailable()) if toggle is not None else ""
+
+    def buttonArea(self):
+        """Where the page's 2D/3D button is, (x, y, width, height), for the
+        3D view to keep its text and buttons out from under it."""
+        return grid3dweb.buttonArea()
 
     def openView(self, width, height):
         return grid3dweb.Grid3DWebView.open(
@@ -134,6 +139,10 @@ class WebTicTacToe(TicTacToe):
         self.sentScene = None
         self.notice = None
         self.noticeUntil = 0.0
+        # the page's 2D/3D button, which the 3D headlines and buttons keep clear of
+        self.keepClear = None
+        # whether a 3D view that failed before the game began has been explained
+        self.toldEarlyFailure = False
         super().__init__()
 
     def initializeDisplay(self):
@@ -144,6 +153,13 @@ class WebTicTacToe(TicTacToe):
 
     def follow3DToggle(self):
         """Opens or closes the 3D view to match the page's toggle."""
+        if not self.toldEarlyFailure:
+            # the page starts loading 3D before the game runs, so it may have failed already
+            self.toldEarlyFailure = True
+            unavailable = getattr(self.page, "unavailable", None)
+            reason = unavailable() if unavailable is not None else ""
+            if reason:
+                self.showNotice(unavailableLines(reason))
         wanted = self.page.wants3D()
         if wanted and self.view3d is None:
             self.open3D()
@@ -159,14 +175,25 @@ class WebTicTacToe(TicTacToe):
             self.page.set3D(False, str(reason))
             self.showNotice(unavailableLines(reason))
             return
+        self.readButtonArea()
         self.pointer3D = None
         self.sentScene = None
+
+    def readButtonArea(self):
+        """Where the page's 2D/3D button is now (read on opening and on a
+        resize, as the page lays it out)."""
+        area = getattr(self.page, "buttonArea", None)
+        self.keepClear = area() if area is not None else None
 
     def close3D(self):
         """Back to the 2D view; if the 3D view failed to load, the 2D screen
         says why."""
         view, self.view3d = self.view3d, None
         reason = view.failure()
+        if not reason:
+            # the page may have closed the relay itself on a failure, keeping the reason
+            unavailable = getattr(self.page, "unavailable", None)
+            reason = unavailable() if unavailable is not None else ""
         view.close()
         self.pointer3D = None
         if reason:
@@ -201,12 +228,14 @@ class WebTicTacToe(TicTacToe):
             self.pointer3D,
             view.width,
             view.height,
+            self.keepClear,
         )
         if key == self.sentScene:
             return
         buttons = [button for button, _ in self.frameButtons()]
         view.drawScene(
-            buildScene(cells, self.recorder.texts, buttons, view.width, view.height, self.pointer3D)
+            buildScene(cells, self.recorder.texts, buttons, view.width, view.height, self.pointer3D,
+                       self.keepClear)
         )
         self.sentScene = key
 
@@ -235,8 +264,8 @@ class WebTicTacToe(TicTacToe):
             )
 
     async def endFrame(self, pressPos):
-        self.drawNotice()
         self.update3D()
+        self.drawNotice()
         await super().endFrame(pressPos)
 
     async def pause(self, seconds):
@@ -268,6 +297,7 @@ class WebTicTacToe(TicTacToe):
             mouse = getattr(event, "pointer", "") != "touch"
             if event.type == grid3dweb.EVENT_RESIZED and event.width and event.height:
                 view.resize(event.width, event.height)
+                self.readButtonArea()
             elif event.type == grid3dweb.EVENT_MOUSE_MOTION:
                 self.pointer3D = (event.x, event.y) if mouse else None
             elif event.type == grid3dweb.EVENT_MOUSE_BUTTON_DOWN and event.button == LEFT_BUTTON:
@@ -297,6 +327,6 @@ class WebTicTacToe(TicTacToe):
             return  # switched back to 2D since the press: it was aimed at the 3D view
         width, height = self.view3d.width, self.view3d.height
         for button, function in self.frameButtons():
-            if buttonHit(button, pressPos, width, height):
+            if buttonHit(button, pressPos, width, height, self.keepClear):
                 await function()
                 return
