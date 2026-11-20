@@ -33,6 +33,16 @@ pip install -r requirements.txt
 ```
 python3 src/tictactoe.py
 ```
+On Linux and Windows this opens the 3D window when it can (see below) and otherwise says why in plain words and opens the 2D window. `--2d` always opens the 2D window; `--strata` insists on 3D and stops with the reason instead of falling back.
+
+## 3D view
+The desktop game can also be played in 3D, drawn with [Strata](https://github.com/Preponderous-Software/strata) through graphik's 3D grid view (`preponderous.graphik.grid3d`). It is the same game: the title screen, Start, the board, the computer's move after a one-second pause, the three end screens with Play Again and Quit, hover feedback on every button and cell, and the rule that presses made during a pause are dropped all come from `src/tictactoe.py` unchanged. The board is a 3x3 grid of tiles with an X or an O standing on each claimed cell; a click lands on the tile under the pointer, and the other buttons are drawn as panels in the same places as in the 2D window. Closing the window quits, as in 2D. Neither window binds any keys.
+
+It needs a graphik release that includes the 3D grid view, and Strata's Python binding:
+```
+pip install "strata-engine @ git+https://github.com/Preponderous-Software/strata@v0.7.0#subdirectory=bindings/python"
+```
+The binding downloads Strata's library (pinned by SHA-256) the first time it runs. Strata ships Linux x64 and Windows x64 libraries, so there is no 3D view on macOS or in the browser build, which keeps the 2D window. `src/strata_view/` holds the view: `scene.py` maps the game and each screen's text and buttons to shapes and needs no GPU, and `game.py` runs the game's own screens in a Strata window. `python3 tools/strata_snapshot.py --out shots/` renders every screen headless to PNGs. The 3D tests under `tests/view3d/` are skipped where the installed graphik has no 3D grid view.
 
 ### Running the tests
 The tests use [pytest](https://docs.pytest.org/) and run headlessly, so no display is required. They run the screens and handlers with `asyncio.run` and replace `asyncio.sleep`, so nothing actually waits.
