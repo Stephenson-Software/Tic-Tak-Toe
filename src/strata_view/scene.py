@@ -38,6 +38,7 @@ from preponderous.graphik.grid3d import (
     cellScreenPosition,
     centredLabel,
     hoverColor,
+    measureText,
     pickCell as _pickCell,
     projectToScreen,
     rgba,
@@ -80,6 +81,10 @@ OVERLAY_COLOR = (0.04, 0.05, 0.07, 0.55)
 TEXT_SCALE = 0.72
 BUTTON_TEXT_SCALE = 0.9
 BUTTON_PADDING = 14
+# Never smaller than this, in pixels: on a phone held upright the 2D layout
+# shrinks to about half, which would leave a button's label too small to read
+# (the panel widens to fit it, so the button stays an easy tap)
+MIN_BUTTON_TEXT = 14
 
 MARK_HEIGHT = 0.16
 MARK_BASE_HEIGHT = 0.04
@@ -182,6 +187,19 @@ class ScreenRecorder:
         self.buttons.append((xpos, ypos, width, height, colorBox, colorText, sizeText, text))
 
 
+def frameButtons(buttons, recorded):
+    """A frame's buttons as (Button, handler) pairs. TicTacToe.drawButton
+    hands every button to its Graphik (here a ScreenRecorder, whose `buttons`
+    are `recorded`) and to its own `buttons` (with the handler) in the same
+    order, so the two lists line up."""
+    paired = []
+    for (xpos, ypos, width, height, text, function), drawn in zip(buttons, recorded):
+        _, _, _, _, colorBox, colorText, sizeText, _ = drawn
+        cell = CELL_OF_HANDLER.get(getattr(function, "__name__", None))
+        paired.append((Button(xpos, ypos, width, height, text, colorBox, colorText, sizeText, cell), function))
+    return paired
+
+
 def boardCells(game):
     """(column, row) -> "X", "O" or "" for every cell, from the game's state."""
     return {cell: getattr(game, attribute) for _, cell, attribute in CELLS}
@@ -220,25 +238,47 @@ def layoutScale(width, height):
 
 
 def buttonPixelSize(button, width, height):
-    return button.sizeText * BUTTON_TEXT_SCALE * layoutScale(width, height)[2]
+    return max(MIN_BUTTON_TEXT, button.sizeText * BUTTON_TEXT_SCALE * layoutScale(width, height)[2])
 
 
-def screenButton(button, width, height):
+# How far below the page's 2D/3D button (in the browser) a headline or
+# button that would run under it is moved
+KEEP_CLEAR_GAP = 8
+
+
+def _overlaps(x, y, w, h, area):
+    ax, ay, aw, ah = area
+    return x < ax + aw and x + w > ax and y < ay + ah and y + h > ay
+
+
+def keepClearShift(x, y, w, h, keepClear):
+    """How far down a box at (x, y, w, h) moves to stay out from under
+    `keepClear` (x, y, width, height: the browser page's 2D/3D button), or
+    0 when it is clear of it, or there is nothing to keep clear of."""
+    if keepClear is None or not _overlaps(x, y, w, h, keepClear):
+        return 0.0
+    return keepClear[1] + keepClear[3] + KEEP_CLEAR_GAP - y
+
+
+def screenButton(button, width, height, keepClear=None):
     """A non-cell button as a grid3d screen Button: the 2D box scaled to the
-    window, widened about its centre when Strata's wider font needs it."""
+    window, widened about its centre when Strata's wider font needs it, and
+    moved down out from under `keepClear` (the browser's 2D/3D button)."""
     sx, sy, _ = layoutScale(width, height)
-    return ScreenButton(button.xpos * sx, button.ypos * sy, button.width * sx, button.height * sy,
-                        button.text, button.colorBox, button.colorText,
-                        buttonPixelSize(button, width, height), alpha=0.92,
-                        padding=BUTTON_PADDING)
+    screen = ScreenButton(button.xpos * sx, button.ypos * sy, button.width * sx, button.height * sy,
+                          button.text, button.colorBox, button.colorText,
+                          buttonPixelSize(button, width, height), alpha=0.92,
+                          padding=BUTTON_PADDING)
+    screen.y += keepClearShift(*screen.rect(), keepClear)
+    return screen
 
 
-def buttonRect(button, width, height):
+def buttonRect(button, width, height, keepClear=None):
     """A non-cell button's rectangle in the window (screenButton's)."""
-    return screenButton(button, width, height).rect()
+    return screenButton(button, width, height, keepClear).rect()
 
 
-def buttonHit(button, pos, width, height):
+def buttonHit(button, pos, width, height, keepClear=None):
     """True when a press at window position `pos` lands on the button: a
     cell's tile as it appears in 3D, or a panel's rectangle (with graphik's
     2D edges: left and top in, right and bottom out)."""
@@ -246,30 +286,35 @@ def buttonHit(button, pos, width, height):
         return False
     if button.cell is not None:
         return pickCell(pos, width, height) == button.cell
-    return screenButton(button, width, height).contains(pos)
+    return screenButton(button, width, height, keepClear).contains(pos)
 
 
-def headlineLabel(text, xpos, ypos, size, width, height):
-    """graphik's drawText centres its text on (xpos, ypos)."""
+def headlineLabel(text, xpos, ypos, size, width, height, keepClear=None):
+    """graphik's drawText centres its text on (xpos, ypos); the headline
+    moves down out from under `keepClear` (the browser's 2D/3D button)."""
     sx, sy, s = layoutScale(width, height)
     pixelSize = size * TEXT_SCALE * s
     # never wider than the window
     pixelSize = min(pixelSize, (width - 2 * BUTTON_PADDING) / max(1, len(text)))
     # the 2D window paints black text on white; the 3D background is dark
-    return centredLabel(text, xpos * sx, ypos * sy, pixelSize, TEXT_COLOR)
+    label = centredLabel(text, xpos * sx, ypos * sy, pixelSize, TEXT_COLOR)
+    label.y += keepClearShift(label.x, label.y, measureText(text, pixelSize), pixelSize, keepClear)
+    return label
 
 
-def buttonPanelAndLabel(button, width, height, pointer):
+def buttonPanelAndLabel(button, width, height, pointer, keepClear=None):
     """The panel (lifted while `pointer` is over it) and label of a non-cell button."""
-    return screenButton(button, width, height).draw(pointer)
+    return screenButton(button, width, height, keepClear).draw(pointer)
 
 
-def buildScene(cells, texts, buttons, width, height, pointer=None):
+def buildScene(cells, texts, buttons, width, height, pointer=None, keepClear=None):
     """The Scene for one frame.
 
     cells: (column, row) -> "X"/"O"/"" (boardCells); texts: the screen's
     drawText calls; buttons: Button objects; pointer: the mouse position in
-    the window, for hover feedback, or None.
+    the window, for hover feedback, or None; keepClear: (x, y, width,
+    height) that text and buttons stay out from under (the browser page's
+    2D/3D button), or None.
     """
     hasCells = any(button.cell is not None for button in buttons)
     labels, panels = [], []
@@ -278,15 +323,15 @@ def buildScene(cells, texts, buttons, width, height, pointer=None):
         # drawn over a blank window
         panels.append(Panel(0, 0, width, height, OVERLAY_COLOR))
     for text, xpos, ypos, size, color in texts:
-        labels.append(headlineLabel(text, xpos, ypos, size, width, height))
+        labels.append(headlineLabel(text, xpos, ypos, size, width, height, keepClear))
     hoveredCell = None
     for button in buttons:
-        hovered = buttonHit(button, pointer, width, height)
+        hovered = buttonHit(button, pointer, width, height, keepClear)
         if button.cell is not None:
             if hovered:
                 hoveredCell = button.cell
             continue
-        panel, label = buttonPanelAndLabel(button, width, height, pointer)
+        panel, label = buttonPanelAndLabel(button, width, height, pointer, keepClear)
         panels.append(panel)
         labels.append(label)
     return BOARD.scene(

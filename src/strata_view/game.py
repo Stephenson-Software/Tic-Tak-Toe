@@ -14,14 +14,13 @@ import sys
 
 from strata_view import StrataUnavailable
 from strata_view.scene import (
-    CELL_OF_HANDLER,
     LAYOUT_HEIGHT,
     LAYOUT_WIDTH,
-    Button,
     ScreenRecorder,
     boardCells,
     buildScene,
     buttonHit,
+    frameButtons,
 )
 from tictactoe import TicTacToe
 
@@ -47,15 +46,8 @@ class StrataTicTacToe(TicTacToe):
         return self.view.width, self.view.height
 
     def frameButtons(self):
-        """This frame's buttons, each with the handler TicTacToe pressed it with.
-        TicTacToe.drawButton hands every button to the recorder and to
-        self.buttons in the same order, so the two lists line up."""
-        paired = []
-        for (xpos, ypos, width, height, text, function), drawn in zip(self.buttons, self.graphik.buttons):
-            _, _, _, _, colorBox, colorText, sizeText, _ = drawn
-            cell = CELL_OF_HANDLER.get(getattr(function, "__name__", None))
-            paired.append((Button(xpos, ypos, width, height, text, colorBox, colorText, sizeText, cell), function))
-        return paired
+        """This frame's buttons, each with the handler TicTacToe pressed it with."""
+        return frameButtons(self.buttons, self.graphik.buttons)
 
     def buildScene(self):
         width, height = self.windowSize
