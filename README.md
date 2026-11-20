@@ -40,7 +40,7 @@ The desktop game can also be played in 3D, drawn with [Strata](https://github.co
 
 It needs a graphik release that includes the 3D grid view, and Strata's Python binding:
 ```
-pip install "strata-engine @ git+https://github.com/Preponderous-Software/strata@v0.7.0#subdirectory=bindings/python"
+pip install "strata-engine @ git+https://github.com/Preponderous-Software/strata@v0.8.0#subdirectory=bindings/python"
 ```
 The binding downloads Strata's library (pinned by SHA-256) the first time it runs. Strata ships Linux x64 and Windows x64 libraries, so there is no 3D view on macOS or in the browser build, which keeps the 2D window. `src/strata_view/` holds the view: `scene.py` maps the game and each screen's text and buttons to shapes and needs no GPU, and `game.py` runs the game's own screens in a Strata window. `python3 tools/strata_snapshot.py --out shots/` renders every screen headless to PNGs. The 3D tests under `tests/view3d/` are skipped where the installed graphik has no 3D grid view.
 
