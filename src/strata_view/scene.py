@@ -80,6 +80,10 @@ OVERLAY_COLOR = (0.04, 0.05, 0.07, 0.55)
 TEXT_SCALE = 0.72
 BUTTON_TEXT_SCALE = 0.9
 BUTTON_PADDING = 14
+# Never smaller than this, in pixels: on a phone held upright the 2D layout
+# shrinks to about half, which would leave a button's label too small to read
+# (the panel widens to fit it, so the button stays an easy tap)
+MIN_BUTTON_TEXT = 14
 
 MARK_HEIGHT = 0.16
 MARK_BASE_HEIGHT = 0.04
@@ -182,6 +186,19 @@ class ScreenRecorder:
         self.buttons.append((xpos, ypos, width, height, colorBox, colorText, sizeText, text))
 
 
+def frameButtons(buttons, recorded):
+    """A frame's buttons as (Button, handler) pairs. TicTacToe.drawButton
+    hands every button to its Graphik (here a ScreenRecorder, whose `buttons`
+    are `recorded`) and to its own `buttons` (with the handler) in the same
+    order, so the two lists line up."""
+    paired = []
+    for (xpos, ypos, width, height, text, function), drawn in zip(buttons, recorded):
+        _, _, _, _, colorBox, colorText, sizeText, _ = drawn
+        cell = CELL_OF_HANDLER.get(getattr(function, "__name__", None))
+        paired.append((Button(xpos, ypos, width, height, text, colorBox, colorText, sizeText, cell), function))
+    return paired
+
+
 def boardCells(game):
     """(column, row) -> "X", "O" or "" for every cell, from the game's state."""
     return {cell: getattr(game, attribute) for _, cell, attribute in CELLS}
@@ -220,7 +237,7 @@ def layoutScale(width, height):
 
 
 def buttonPixelSize(button, width, height):
-    return button.sizeText * BUTTON_TEXT_SCALE * layoutScale(width, height)[2]
+    return max(MIN_BUTTON_TEXT, button.sizeText * BUTTON_TEXT_SCALE * layoutScale(width, height)[2])
 
 
 def screenButton(button, width, height):

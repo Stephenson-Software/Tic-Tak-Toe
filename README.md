@@ -11,10 +11,13 @@ To build and serve it locally:
 ```
 python3 -m pip install pygbag==0.9.3
 python3 -m pip install --no-deps --target src "$(grep -E '^graphik @ ' requirements.txt)"
-python3 -m pygbag --build src
+python3 -m pygbag --build --template "$(PYTHONPATH=src python3 -c 'from preponderous.graphik.grid3d.web import templatePath; print(templatePath())')" src
+PYTHONPATH=src python3 -m preponderous.graphik.grid3d.relay --strata 0.9.0 --dest src/build/web
 python3 -m http.server 8000 --bind 127.0.0.1 --directory src/build/web
 ```
 then open http://127.0.0.1:8000 (pygbag looks for its packages on a local CDN when the page is served from `localhost`, so the address matters). pygbag packs only what is under `src/`, so the second line copies the pinned graphik release into `src/preponderous/` first, as `.github/workflows/browser.yml` does. `src/main.py` is the browser entry point; `src/tictactoe.py` stays the desktop one. Neither the build output in `src/build/` nor `src/preponderous/` is committed.
+
+The page has a **3D** button in its top-right corner that shows the same game in 3D (see [3D view](#3d-view)), and **2D** switches back; either way works at any moment, in the middle of a game too. The page is built with graphik's pygbag template, and the fourth line above copies Strata's prebuilt grid relay (from Strata's 0.9.0 release, checked against its SHA256SUMS) next to it. Nothing of the 3D view (about 1.3 MB) is downloaded until the button is pressed; if it can't load (no WebGL 2, for example), the 2D view stays, the button says "3D unavailable", and the game says why at the bottom of the screen.
 
 For the browser, every screen draws one frame per pass and yields to the event loop with `await asyncio.sleep(0)`, and the one-second pauses use `await asyncio.sleep(1)`, so the screens, the cell handlers and the win check are coroutines. A button is pressed by the left-button press event that lands on it, once per click or tap (a browser tap delivers its press and release in the same frame, so [graphik](https://github.com/Stephenson-Software/graphik)'s held-button check is not used for pressing). Presses made during the one-second pause before an end screen are discarded, because Play Again is drawn over the bottom-middle cell. Presses made during the computer's one-second pause are discarded too, so a tap is not played as the next move before the computer's mark has been seen. Presses made in the half second after Start is pressed are discarded as well, because Start is drawn over the centre cell and the second press of a double-click would otherwise play a move there.
 
@@ -42,7 +45,9 @@ It needs a graphik release that includes the 3D grid view, and Strata's Python b
 ```
 pip install "strata-engine @ git+https://github.com/Preponderous-Software/strata@v0.8.0#subdirectory=bindings/python"
 ```
-The binding downloads Strata's library (pinned by SHA-256) the first time it runs. Strata ships Linux x64 and Windows x64 libraries, so there is no 3D view on macOS or in the browser build, which keeps the 2D window. `src/strata_view/` holds the view: `scene.py` maps the game and each screen's text and buttons to shapes and needs no GPU, and `game.py` runs the game's own screens in a Strata window. `python3 tools/strata_snapshot.py --out shots/` renders every screen headless to PNGs. The 3D tests under `tests/view3d/` are skipped where the installed graphik has no 3D grid view.
+The binding downloads Strata's library (pinned by SHA-256) the first time it runs. Strata ships Linux x64 and Windows x64 libraries, so there is no 3D window on macOS, which keeps the 2D window.
+
+The browser build has the same 3D view (`src/strata_view/web.py`). There the game is the 2D game, which also sends each frame the screen draws to the page's Strata grid relay, as the scene the desktop window draws, while the 3D button is on. Every screen, button, pause and rule is the 2D game's, so the 3D view in the browser has the same title screen and Start (and, as in the 2D browser build, no Quit), the same board, the computer's move after its pause, the three end screens with Play Again, and the rule that presses made during a pause are dropped. A tap or click lands on the tile or panel under it in 3D and runs the handler the 2D press would; the mouse lifts the button or lights the tile under it, as in 2D (a touch has no hover). On a phone held upright the button labels are kept at a readable size and the buttons widen to fit them. `src/strata_view/` holds the view: `scene.py` maps the game and each screen's text and buttons to shapes and needs no GPU, and `game.py` runs the game's own screens in a Strata window. `python3 tools/strata_snapshot.py --out shots/` renders every screen headless to PNGs. The 3D tests under `tests/view3d/` are skipped where the installed graphik has no 3D grid view.
 
 ### Running the tests
 The tests use [pytest](https://docs.pytest.org/) and run headlessly, so no display is required. They run the screens and handlers with `asyncio.run` and replace `asyncio.sleep`, so nothing actually waits.
@@ -54,7 +59,7 @@ python3 -m pytest
 ## Continuous integration
 `.github/workflows/ci.yml` runs the tests on every push to `master` and every pull request, then launches the game under the dummy SDL drivers to confirm it starts and keeps running.
 
-`.github/workflows/browser.yml` runs on the same events and builds the browser version with pygbag, checking that `src/build/web/index.html` was produced. On a manual run (`workflow_dispatch`), or on a push to `master` once the repository variable `ARCADE_ENABLED` is `true`, it deploys the build to [arcade](https://github.com/Stephenson-Software/arcade) with [arcade-deploy](https://github.com/Stephenson-Software/arcade-deploy), as version `<version.txt>+g<short commit>`; the upload token is the `ARCADE_TOKEN` secret.
+`.github/workflows/browser.yml` runs on the same events and builds the browser version with pygbag, with graphik's page template, puts Strata's grid relay next to the page and checks that the page, its 3D button and the relay are there. On a manual run (`workflow_dispatch`), or on a push to `master` once the repository variable `ARCADE_ENABLED` is `true`, it deploys the build to [arcade](https://github.com/Stephenson-Software/arcade) with [arcade-deploy](https://github.com/Stephenson-Software/arcade-deploy), as version `<version.txt>+g<short commit>`; the upload token is the `ARCADE_TOKEN` secret.
 
 ## Support
 You can find the support discord server [here](https://discord.gg/49J4RHQxhy).

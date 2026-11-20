@@ -133,6 +133,12 @@ class TicTacToe:
                 await function()
                 return
 
+    async def pause(self, seconds):
+        # every pause the game makes (the computer's move, the end screens, after Start); the
+        # board stays on screen and the browser keeps running. The browser's 3D view
+        # (strata_view/web.py) keeps itself up to date during one
+        await asyncio.sleep(seconds)
+
     async def exit(self):
         pygame.quit()
         quit()
@@ -204,7 +210,7 @@ class TicTacToe:
         await self.checkForWinCondition()
         
         if self.moves != 9:
-            await asyncio.sleep(1)
+            await self.pause(1)
             self.discardPressesMadeDuringThePause()
 
             went = False
@@ -295,7 +301,7 @@ class TicTacToe:
         await self.titleScreen()
 
     async def playerWin(self):
-        await asyncio.sleep(1)
+        await self.pause(1)
         self.discardPressesMadeDuringThePause()
 
         while self.moves > 0:
@@ -310,7 +316,7 @@ class TicTacToe:
             await self.endFrame(pressPos)
         
     async def computerWin(self):
-        await asyncio.sleep(1)
+        await self.pause(1)
         self.discardPressesMadeDuringThePause()
 
         while self.moves > 0:
@@ -325,7 +331,7 @@ class TicTacToe:
             await self.endFrame(pressPos)
                 
     async def tie(self):
-        await asyncio.sleep(1)
+        await self.pause(1)
         self.discardPressesMadeDuringThePause()
 
         while self.moves > 0:
@@ -406,7 +412,7 @@ class TicTacToe:
         # for a player to have seen the board and aimed at a cell
         self.beginFrame()
         self.drawGrid()
-        await asyncio.sleep(self.startPauseSeconds)
+        await self.pause(self.startPauseSeconds)
         self.discardPressesMadeDuringThePause()
         await self.gridScreen()
 
