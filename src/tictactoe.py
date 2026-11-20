@@ -37,21 +37,13 @@ class TicTacToe:
             # visitor would face the same sequence of computer moves
             random.seed(time.time_ns())
 
-        pygame.init()
-
         self.black = (0,0,0)
         self.white = (255,255,255)
 
         self.displayWidth = 800
         self.displayHeight = 600
 
-        self.gameDisplay = pygame.display.set_mode((self.displayWidth, self.displayHeight))
-
-        self.graphik = Graphik(self.gameDisplay)
-
-        pygame.display.set_caption("Tic Tac Toe")
-
-        self.clock = pygame.time.Clock()
+        self.initializeDisplay()
 
         self.topLeftL = ""
         self.topMiddleL = ""
@@ -69,6 +61,24 @@ class TicTacToe:
 
         # the buttons drawn in the current frame, as (xpos, ypos, width, height, text, function)
         self.buttons = []
+
+    def initializeDisplay(self):
+        # The 2D window. The 3D view (strata_view/game.py) replaces this with a Strata window and
+        # keeps every screen, button and rule below as it is
+        pygame.init()
+
+        self.gameDisplay = pygame.display.set_mode((self.displayWidth, self.displayHeight))
+
+        self.graphik = Graphik(self.gameDisplay)
+
+        pygame.display.set_caption("Tic Tac Toe")
+
+        self.clock = pygame.time.Clock()
+
+    def presentNow(self):
+        # shows what has been drawn so far, between frames (drawGrid shows the player's mark
+        # before the computer's one-second pause)
+        pygame.display.update()
 
     def drawGridSlot(self, xpos, ypos, XorO, function):
         self.drawButton(xpos, ypos, 100, 100, self.white, self.black, 64, XorO, function)
@@ -266,7 +276,7 @@ class TicTacToe:
         self.drawGridSlot(centerGridX, centerGridY + 125, self.bottomMiddleL, self.bottomMiddle) # bottom row middle column
         self.drawGridSlot(centerGridX + 125, centerGridY + 125, self.bottomRightL, self.bottomRight) # bottom row right column
         
-        pygame.display.update()
+        self.presentNow()
 
     async def restart(self):
         self.topLeftL = ""
@@ -425,6 +435,52 @@ class TicTacToe:
 
             await self.endFrame(pressPos)
 
-if __name__ == "__main__":
+# Strata ships libraries for desktop Linux and Windows, so the 3D view is the default there
+STRATA_PLATFORMS = ("linux", "win32")
+
+
+def parseArguments(argv=None):
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Play Tic Tac Toe against the computer.")
+    view = parser.add_mutually_exclusive_group()
+    view.add_argument("--2d", dest="flat", action="store_true",
+                      help="play in the 2D window instead of the 3D one")
+    view.add_argument("--strata", action="store_true",
+                      help="insist on the 3D window: stop with the reason if it can't start, "
+                           "instead of falling back to 2D")
+    return parser.parse_args(argv)
+
+
+def chooseInterface(args, platform=None):
+    # "3d" or "2d". 3D is the default on Linux and Windows desktops; the browser build doesn't
+    # come through here (it starts from main.py)
+    platform = sys.platform if platform is None else platform
+    if args.flat:
+        return "2d"
+    if args.strata or platform in STRATA_PLATFORMS:
+        return "3d"
+    return "2d"
+
+
+def main(argv=None):
+    args = parseArguments(argv)
+    if chooseInterface(args) == "3d":
+        from strata_view import StrataUnavailable, runStrataGame
+
+        try:
+            runStrataGame()
+            return
+        except StrataUnavailable as reason:
+            if args.strata:
+                sys.exit("The 3D window couldn't start: %s." % reason)
+            print(
+                "The 3D view isn't available here: %s.\n"
+                "Starting the 2D game instead (--2d skips this check)." % reason
+            )
     ticTacToe = TicTacToe()
     asyncio.run(ticTacToe.titleScreen())
+
+
+if __name__ == "__main__":
+    main()

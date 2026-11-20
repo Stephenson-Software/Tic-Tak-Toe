@@ -6,3 +6,6 @@ __pycache__/
 src/build/
 # graphik, installed into src/ only for the browser build (.github/workflows/browser.yml)
 src/preponderous/
+
+# headless 3D screenshots (tools/strata_snapshot.py)
+strata-shots/
