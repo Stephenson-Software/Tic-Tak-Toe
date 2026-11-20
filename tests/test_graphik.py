@@ -3,8 +3,9 @@ import inspect
 import pygame
 import pytest
 
-import Graphik as graphikModule
-from Graphik import Graphik
+import preponderous.graphik as graphikPackage
+import preponderous.graphik.graphik as graphikModule
+from preponderous.graphik import Graphik
 
 
 #  A 100x50 button at (200, 300), the size every end-screen button uses.
@@ -44,11 +45,12 @@ def test_game_display_is_returned_as_given():
     assert Graphik(fakeDisplay).getGameDisplay() is fakeDisplay
 
 
-def test_constructor_requires_a_game_display():
-    #  Graphik never opens a display of its own: the only constructor takes the display the
-    #  game already created, so calling it without one is an error rather than a 900x600 window.
-    with pytest.raises(TypeError):
-        Graphik()
+def test_constructor_without_a_display_opens_the_default_window():
+    #  The game always passes its own display. Without one, graphik opens a 900x600 window
+    #  rather than failing (the old vendored copy raised TypeError here).
+    graphik = Graphik()
+
+    assert graphik.getGameDisplay().get_size() == (900, 600)
 
 
 def test_constructor_has_exactly_one_definition():
@@ -59,19 +61,18 @@ def test_constructor_has_exactly_one_definition():
     assert source.count("def __init__(") == 1
 
 
-def test_constructor_assigns_only_the_game_display_and_an_empty_font_cache():
-    #  The color attributes of the removed, shadowed __init__ were never present on an
-    #  instance, so nothing is expected here beyond the display that was passed in and the
-    #  cache that getFont fills. No font is opened until one is needed.
+def test_constructor_opens_no_font(monkeypatch):
+    #  No font is opened until text is drawn.
+    monkeypatch.setattr(pygame.font, "Font", lambda *args: pytest.fail("a font was opened"))
     graphik = Graphik(FakeDisplay())
 
-    assert vars(graphik) == {"gameDisplay": graphik.gameDisplay, "fonts": {}}
+    assert graphik.gameDisplay is graphik.getGameDisplay()
 
 
-def test_get_version_is_not_offered():
-    #  Issue #12: getVersion returned self.version, which no code ever assigned, so every call
-    #  raised AttributeError. The method has been removed rather than left as a guaranteed error.
-    assert not hasattr(Graphik, "getVersion")
+def test_get_version_returns_the_installed_version():
+    #  Issue #12: the old vendored copy's getVersion always raised AttributeError, so it was
+    #  removed; the installed graphik has a working one.
+    assert Graphik(FakeDisplay()).getVersion() == graphikPackage.__version__
 
 
 def test_rectangle_fills_exactly_the_given_area():
@@ -179,21 +180,21 @@ def test_left_click_still_counts_while_another_button_is_held(monkeypatch):
     assert pressButton(Graphik(FakeDisplay()), monkeypatch, (250, 325), (1, 0, 1)) == 1
 
 
-#  The hit-box uses strict comparisons, so a click on the button's outline is ignored and
-#  only the pixels strictly inside it register. The right and bottom edges sit at
-#  xpos + width and ypos + height, one pixel past the last pixel drawRectangle fills.
+#  The clickable region is exactly the drawn box: its left and top edges count (the old
+#  vendored copy missed them). The right and bottom edges sit at xpos + width and
+#  ypos + height, one pixel past the last pixel drawRectangle fills, so they don't.
 @pytest.mark.parametrize("mousePosition, clicks", [
-    ((200, 325), 0),
+    ((200, 325), 1),
     ((201, 325), 1),
     ((299, 325), 1),
     ((300, 325), 0),
-    ((250, 300), 0),
+    ((250, 300), 1),
     ((250, 301), 1),
     ((250, 349), 1),
     ((250, 350), 0),
 ], ids=["left edge", "just inside left", "just inside right", "right edge",
         "top edge", "just inside top", "just inside bottom", "bottom edge"])
-def test_click_registers_only_strictly_inside_the_button(monkeypatch, mousePosition, clicks):
+def test_click_registers_exactly_on_the_drawn_button(monkeypatch, mousePosition, clicks):
     assert pressButton(Graphik(FakeDisplay()), monkeypatch, mousePosition, (1, 0, 0)) == clicks
 
 

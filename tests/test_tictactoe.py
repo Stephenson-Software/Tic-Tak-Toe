@@ -1042,8 +1042,8 @@ PROBES = [(200, 325), (201, 325), (299, 325), (300, 325), (250, 300), (250, 301)
                                                   "top edge", "just inside top", "just inside bottom", "bottom edge"])
 def test_a_press_lands_on_a_button_exactly_where_graphik_would_click_it(monkeypatch, position):
     #  Presses replaced Graphik's own click check when the screens moved to press events, and
-    #  pressLandedOn keeps its bounds, so a click on a button's outline still presses nothing.
-    graphik = tictactoe.Graphik(None)
+    #  pressLandedOn keeps its bounds, so a press lands exactly where graphik would click.
+    graphik = tictactoe.Graphik(pygame.Surface((1, 1)))
     monkeypatch.setattr(graphik, "drawRectangle", lambda *args: None)
     monkeypatch.setattr(graphik, "drawText", lambda *args: None)
     monkeypatch.setattr(tictactoe.pygame.mouse, "get_pos", lambda: position)

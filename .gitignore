@@ -4,3 +4,5 @@ __pycache__/
 
 # pygbag's browser build output (python -m pygbag --build src)
 src/build/
+# graphik, installed into src/ only for the browser build (.github/workflows/browser.yml)
+src/preponderous/
