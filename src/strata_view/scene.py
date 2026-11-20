@@ -6,11 +6,13 @@ them. buildScene() turns that frame into a Scene for graphik's 3D grid view:
 
 - the board is a 3x3 grid of tiles, with an X or an O standing on every
   claimed cell (the game's own cell attributes);
-- the grid screen's nine cell buttons are the tiles themselves, picked by
-  projecting each tile onto the window (pickCell);
+- the grid screen's nine cell buttons are the tiles themselves, picked
+  through graphik grid3d's pickCell (the ray through the pointer meets the
+  board), and the tile under the pointer gets grid3d's hover slab;
 - every other button (Start, Play Again, Quit) is a screen panel, and every
   headline ("Tic Tac Toe", "You won!") is screen text, laid out from the 2D
-  window's 800x600 coordinates scaled to the 3D window.
+  window's 800x600 coordinates scaled to the 3D window; buttons are
+  grid3d's screen Buttons (graphik's 2D edges and hover lift).
 
 So every screen, button and handler is the 2D game's, and only how they look
 and how a press finds them differ.
@@ -20,6 +22,7 @@ import math
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
+# BED_TOP, hoverColor and projectToScreen are re-exported for the tools and tests.
 from preponderous.graphik.grid3d import (
     BED_TOP,
     CUBE,
@@ -27,16 +30,20 @@ from preponderous.graphik.grid3d import (
     SPHERE,
     TEXT_COLOR,
     GridBoard,
-    Label,
     Panel,
     Piece,
     PieceStyle,
     Shape,
     Theme,
-    rgb255,
+    cellScreenPosition,
+    centredLabel,
+    hoverColor,
+    pickCell as _pickCell,
+    projectToScreen,
     rgba,
     shade,
 )
+from preponderous.graphik.grid3d import Button as ScreenButton
 
 # The 2D window's size: the screens lay out their text and buttons in it.
 LAYOUT_WIDTH = 800
@@ -124,6 +131,7 @@ THEME = Theme(
     tileGap=0.12,
     frame=FRAME_COLOR,
     frameWidth=0.3,
+    highlight=HOVER_COLOR,
     pieces={
         # a low disc under each mark, in the mark's colour, darkened
         "X": PieceStyle(kind=CYLINDER, color=shade(X_COLOR, 0.45), height=MARK_BASE_HEIGHT,
@@ -191,78 +199,17 @@ def camera(width, height):
     return BOARD.camera(width / float(height))
 
 
-def projectToScreen(cam, point, width, height):
-    """Where a world point lands in the window, in pixels from the top-left,
-    or None when it's behind the camera. The same right-handed look-at and
-    OpenGL perspective grid3d asks Strata for (up is +y); Strata 0.7.0 has no
-    projection call of its own, so it's done here."""
-
-    def sub(a, b):
-        return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
-
-    def dot(a, b):
-        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-
-    def cross(a, b):
-        return (
-            a[1] * b[2] - a[2] * b[1],
-            a[2] * b[0] - a[0] * b[2],
-            a[0] * b[1] - a[1] * b[0],
-        )
-
-    def unit(a):
-        length = math.sqrt(dot(a, a))
-        return (a[0] / length, a[1] / length, a[2] / length)
-
-    forward = unit(sub(cam.target, cam.eye))
-    right = unit(cross(forward, (0.0, 1.0, 0.0)))
-    up = cross(right, forward)
-    offset = sub(point, cam.eye)
-    depth = dot(offset, forward)
-    if depth <= 0:
-        return None
-    focal = 1.0 / math.tan(math.radians(cam.fovDegrees) / 2.0)
-    aspect = width / float(height)
-    ndcX = focal / aspect * dot(offset, right) / depth
-    ndcY = focal * dot(offset, up) / depth
-    return ((ndcX + 1.0) / 2.0 * width, (1.0 - ndcY) / 2.0 * height)
-
-
-def cellOutline(cell, width, height):
-    """The four window corners of a cell's tile top (the whole cell, gaps
-    shared with its neighbours, so no press between tiles is lost)."""
-    cam = camera(width, height)
-    x, z = BOARD.cellCenter(*cell)
-    corners = [(x - 0.5, z - 0.5), (x + 0.5, z - 0.5), (x + 0.5, z + 0.5), (x - 0.5, z + 0.5)]
-    return [projectToScreen(cam, (cx, BED_TOP, cz), width, height) for cx, cz in corners]
-
-
 def cellCenterOnScreen(cell, width, height):
-    x, z = BOARD.cellCenter(*cell)
-    return projectToScreen(camera(width, height), (x, BED_TOP, z), width, height)
-
-
-def _insideConvex(point, polygon):
-    sign = 0
-    for (ax, ay), (bx, by) in zip(polygon, polygon[1:] + polygon[:1]):
-        cross = (bx - ax) * (point[1] - ay) - (by - ay) * (point[0] - ax)
-        if cross != 0:
-            if sign == 0:
-                sign = 1 if cross > 0 else -1
-            elif (cross > 0) != (sign > 0):
-                return False
-    return True
+    return cellScreenPosition(camera(width, height), BOARD, cell[0], cell[1], width, height)
 
 
 def pickCell(pos, width, height):
-    """The (column, row) of the tile under a window position, or None."""
+    """The (column, row) of the tile under a window position, or None. The
+    whole cell counts, gaps shared with its neighbours, so no press between
+    tiles is lost."""
     if pos is None:
         return None
-    for _, cell, _ in CELLS:
-        outline = cellOutline(cell, width, height)
-        if None not in outline and _insideConvex(pos, outline):
-            return cell
-    return None
+    return _pickCell(camera(width, height), BOARD, pos[0], pos[1], width, height)
 
 
 def layoutScale(width, height):
@@ -276,39 +223,30 @@ def buttonPixelSize(button, width, height):
     return button.sizeText * BUTTON_TEXT_SCALE * layoutScale(width, height)[2]
 
 
-def buttonRect(button, width, height):
-    """A non-cell button's rectangle in the window: the 2D box scaled to the
+def screenButton(button, width, height):
+    """A non-cell button as a grid3d screen Button: the 2D box scaled to the
     window, widened about its centre when Strata's wider font needs it."""
     sx, sy, _ = layoutScale(width, height)
-    w, h = button.width * sx, button.height * sy
-    textWidth = len(button.text) * buttonPixelSize(button, width, height) + 2 * BUTTON_PADDING
-    centerX = (button.xpos + button.width / 2.0) * sx
-    w = max(w, textWidth)
-    return (centerX - w / 2.0, button.ypos * sy, w, h)
+    return ScreenButton(button.xpos * sx, button.ypos * sy, button.width * sx, button.height * sy,
+                        button.text, button.colorBox, button.colorText,
+                        buttonPixelSize(button, width, height), alpha=0.92,
+                        padding=BUTTON_PADDING)
+
+
+def buttonRect(button, width, height):
+    """A non-cell button's rectangle in the window (screenButton's)."""
+    return screenButton(button, width, height).rect()
 
 
 def buttonHit(button, pos, width, height):
     """True when a press at window position `pos` lands on the button: a
-    cell's tile as it appears in 3D, or a panel's rectangle."""
+    cell's tile as it appears in 3D, or a panel's rectangle (with graphik's
+    2D edges: left and top in, right and bottom out)."""
     if pos is None:
         return False
     if button.cell is not None:
         return pickCell(pos, width, height) == button.cell
-    x, y, w, h = buttonRect(button, width, height)
-    # the same edges graphik's 2D check uses: left and top in, right and bottom out
-    return x <= pos[0] < x + w and y <= pos[1] < y + h
-
-
-def hoverColor(color):
-    """graphik's hover lift (Graphik._hoverColor): light colours darken by
-    25, the rest lighten by 35, on the 0-255 scale."""
-    shift = -25 if sum(color[:3]) / 3.0 >= 128 else 35
-    return tuple(max(0, min(255, c + shift)) for c in color[:3])
-
-
-def _centredLabel(text, centerX, centerY, pixelSize, color):
-    return Label(text, centerX - len(text) * pixelSize / 2.0, centerY - pixelSize / 2.0,
-                 pixelSize, color)
+    return screenButton(button, width, height).contains(pos)
 
 
 def headlineLabel(text, xpos, ypos, size, width, height):
@@ -318,25 +256,12 @@ def headlineLabel(text, xpos, ypos, size, width, height):
     # never wider than the window
     pixelSize = min(pixelSize, (width - 2 * BUTTON_PADDING) / max(1, len(text)))
     # the 2D window paints black text on white; the 3D background is dark
-    return _centredLabel(text, xpos * sx, ypos * sy, pixelSize, TEXT_COLOR)
+    return centredLabel(text, xpos * sx, ypos * sy, pixelSize, TEXT_COLOR)
 
 
-def buttonPanelAndLabel(button, width, height, hovered):
-    x, y, w, h = buttonRect(button, width, height)
-    box = hoverColor(button.colorBox) if hovered else button.colorBox
-    panel = Panel(x, y, w, h, rgba(rgb255(box), 0.92))
-    label = _centredLabel(button.text, x + w / 2.0, y + h / 2.0,
-                          buttonPixelSize(button, width, height),
-                          rgba(rgb255(button.colorText)))
-    return panel, label
-
-
-def hoverShapes(cell):
-    """A thin glowing slab on the tile under the pointer (the 2D window lifts
-    a hovered grid slot's colour)."""
-    x, z = BOARD.cellCenter(*cell)
-    edge = 1.0 - THEME.tileGap
-    return [Shape(CUBE, (x, BED_TOP + 0.005, z), (edge, 0.01, edge), rgba(HOVER_COLOR))]
+def buttonPanelAndLabel(button, width, height, pointer):
+    """The panel (lifted while `pointer` is over it) and label of a non-cell button."""
+    return screenButton(button, width, height).draw(pointer)
 
 
 def buildScene(cells, texts, buttons, width, height, pointer=None):
@@ -361,12 +286,10 @@ def buildScene(cells, texts, buttons, width, height, pointer=None):
             if hovered:
                 hoveredCell = button.cell
             continue
-        panel, label = buttonPanelAndLabel(button, width, height, hovered)
+        panel, label = buttonPanelAndLabel(button, width, height, pointer)
         panels.append(panel)
         labels.append(label)
-    scene = BOARD.scene(
-        boardPieces(cells), labels=labels, panels=panels, aspect=width / float(height)
+    return BOARD.scene(
+        boardPieces(cells), labels=labels, panels=panels, aspect=width / float(height),
+        highlight=hoveredCell,
     )
-    if hoveredCell is not None:
-        scene.shapes.extend(hoverShapes(hoveredCell))
-    return scene
