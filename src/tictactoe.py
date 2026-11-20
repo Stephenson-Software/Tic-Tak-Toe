@@ -4,7 +4,7 @@ import time
 
 import pygame
 import random
-from Graphik import Graphik
+from preponderous.graphik import Graphik
 
 
 def runningInBrowser():
@@ -20,8 +20,9 @@ def ignoreHeldButton():
 
 
 def pressLandedOn(pressPos, xpos, ypos, width, height):
-    # the same bounds Graphik.drawButton uses for the cursor
-    return pressPos is not None and xpos + width > pressPos[0] > xpos and ypos + height > pressPos[1] > ypos
+    # the same bounds Graphik.drawButton uses for the cursor: exactly the drawn box, so its
+    # left and top edges count and the right and bottom ones (one past the box) do not
+    return pressPos is not None and xpos <= pressPos[0] < xpos + width and ypos <= pressPos[1] < ypos + height
 
 
 #  @author Daniel McCoy Stephenson
