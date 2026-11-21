@@ -163,3 +163,117 @@ def test_the_recorder_keeps_text_and_buttons_and_clears_per_frame():
     assert recorder.buttons == [(1, 2, 3, 4, (0, 0, 0), (255, 255, 255), 20, "Start")]
     recorder.clear()
     assert recorder.texts == [] and recorder.buttons == []
+
+
+# -- a phone held upright (graphik 0.5.2 frames the board for the window's shape)
+
+
+def boardBox(width, height):
+    from preponderous.graphik.grid3d import projectToScreen
+
+    camera = scene.camera(width, height)
+    half = scene.COLUMNS / 2.0 + scene.THEME.frameWidth
+    points = [
+        projectToScreen(camera, (x, y, z), width, height)
+        for x in (-half, half)
+        for z in (-half, half)
+        for y in (-scene.THEME.tileHeight, 0.3)
+    ]
+    xs, ys = [p[0] for p in points], [p[1] for p in points]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+@pytest.mark.parametrize("size", [(390, 844), (844, 390), (1280, 800), (800, 600)])
+def test_the_whole_board_is_on_screen_at_any_shape(size):
+    left, top, right, bottom = boardBox(*size)
+    assert left >= 0 and top >= 0 and right <= size[0] and bottom <= size[1]
+
+
+def test_on_a_phone_held_upright_the_board_fills_the_width():
+    left, top, right, bottom = boardBox(390, 844)
+    assert right - left >= 0.85 * 390
+    # and a tap on a cell's middle picks that cell
+    for cell in [(0, 0), (1, 1), (2, 2)]:
+        assert scene.pickCell(scene.cellCenterOnScreen(cell, 390, 844), 390, 844) == cell
+
+
+def test_text_drawn_where_earlier_text_was_replaces_it():
+    # as the 2D window paints over it: the board's status line is redrawn mid-frame on a move
+    recorder = scene.ScreenRecorder()
+    recorder.drawText("Your turn: you are X", 400, 60, 32, (0, 0, 0))
+    recorder.drawText("Tic Tac Toe", 400, 150, 64, (0, 0, 0))
+    recorder.drawText("The computer (O) is thinking...", 400, 60, 32, (0, 0, 0))
+    assert [text for text, *_ in recorder.texts] == ["Tic Tac Toe", "The computer (O) is thinking..."]
+
+
+def test_a_headline_on_a_phone_is_no_smaller_than_a_button_label():
+    # the 2D layout shrinks to about half on a phone held upright, which left the board's
+    # status line at about 11 pixels
+    label = scene.headlineLabel("Your turn: you are X", 400, 60, 32, 390, 844)
+    assert label.pixelSize >= scene.MIN_BUTTON_TEXT
+    assert label.x >= 0 and label.x + len(label.text) * label.pixelSize <= 390
+
+
+def test_the_winning_line_is_lit_under_its_marks():
+    # the end screens keep the board, and the line of three is what says how it was won or lost
+    cells = emptyCells()
+    for cell in [(2, 0), (1, 1), (0, 2)]:
+        cells[cell] = "O"
+    cells[(0, 0)] = "X"
+    assert scene.winningCells(cells) == [(2, 0), (1, 1), (0, 2)]
+    lit = scene.buildScene(cells, [("You lost!", 400, 150, 64, (0, 0, 0))], [], 800, 600)
+    unlit = scene.buildScene(emptyCells(), [], [], 800, 600)
+    gold = [shape for shape in lit.shapes if tuple(shape.color[:3]) == scene.WIN_COLOR]
+    assert len(gold) == 3
+    assert not [shape for shape in unlit.shapes if tuple(shape.color[:3]) == scene.WIN_COLOR]
+    assert scene.winningCells(emptyCells()) == []
+
+
+def lostCells():
+    cells = emptyCells()
+    for cell in [(2, 0), (1, 1), (0, 2), (1, 2)]:
+        cells[cell] = "O"
+    for cell in [(0, 0), (1, 0), (0, 1), (2, 1)]:
+        cells[cell] = "X"
+    return cells
+
+
+@pytest.mark.parametrize("size", [(390, 844), (1280, 800)])
+def test_an_end_screens_headline_and_play_again_keep_off_the_played_board(size):
+    # the marks and the lit line say how it ended, so nothing covers them where there is room
+    width, height = size
+    playAgain = button("Play Again", 350, 400, 100, 50)  # where the end screens draw it in 2D
+    headline = ("You lost!", 400, 150, 64, (0, 0, 0))
+    board = scene.boardScreenBox(width, height)
+    assert scene.endScreenBoard(lostCells(), [playAgain], width, height) == board
+    built = scene.buildScene(lostCells(), [headline], [playAgain], width, height)
+    panel = [p for p in built.panels if p.width < width][0]
+    assert not scene._overlaps(panel.x, panel.y, panel.width, panel.height, board)
+    label = [lab for lab in built.labels if lab.text == "You lost!"][0]
+    assert not scene._overlaps(label.x, label.y, scene.measureText(label.text, label.pixelSize),
+                               label.pixelSize, board)
+    assert label.y >= 0 and panel.y + panel.height <= height
+    # and a press lands where the button is drawn
+    shift = scene.endScreenShift(lostCells(), [playAgain], width, height)
+    assert shift > 0
+    centre = (panel.x + panel.width / 2, panel.y + panel.height / 2)
+    assert scene.buttonHit(playAgain, centre, width, height, shift=shift)
+    assert not scene.buttonHit(playAgain, centre, width, height)  # where 2D's layout would put it
+
+
+def test_an_end_screens_buttons_move_together_or_not_at_all():
+    # the desktop window's end screens have Play Again and Quit, one above the other
+    playAgain, quit = button("Play Again", 350, 400, 100, 50), button("Quit", 350, 500, 100, 50)
+    for width, height in [(800, 600), (390, 844), (1280, 800)]:
+        shift = scene.endScreenShift(lostCells(), [playAgain, quit], width, height)
+        a = scene.buttonRect(playAgain, width, height, shift=shift)
+        b = scene.buttonRect(quit, width, height, shift=shift)
+        assert a[1] + a[3] <= b[1]  # still in order, never on top of each other
+        assert b[1] + b[3] <= height
+
+
+def test_the_title_and_board_screens_keep_their_layout():
+    start = button("Start", 350, 300, 100, 50)
+    assert scene.endScreenBoard(emptyCells(), [start], 390, 844) is None  # the title: no marks
+    cellButton = button("", 0, 0, 10, 10, cell=(0, 0))
+    assert scene.endScreenBoard(lostCells(), [cellButton], 390, 844) is None  # playing

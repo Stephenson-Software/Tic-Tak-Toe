@@ -71,6 +71,8 @@ CELL_OF_HANDLER = {handler: cell for handler, cell, _ in CELLS}
 X_COLOR = (0.86, 0.22, 0.18)
 O_COLOR = (0.20, 0.46, 0.88)
 HOVER_COLOR = (1.0, 0.86, 0.35)
+# The tiles under a line of three, once there is one
+WIN_COLOR = (1.0, 0.78, 0.10)
 TILE_LIGHT = (0.86, 0.85, 0.80)
 TILE_DARK = (0.78, 0.77, 0.72)
 FRAME_COLOR = (0.10, 0.10, 0.12)
@@ -176,6 +178,9 @@ class ScreenRecorder:
         self.buttons = []
 
     def drawText(self, text, xpos, ypos, size, color):
+        # Text drawn where earlier text in this frame was replaces it, as the 2D window paints
+        # over it: the board's status line is redrawn mid-frame when a move is made
+        self.texts = [t for t in self.texts if (t[1], t[2]) != (xpos, ypos)]
         self.texts.append((text, xpos, ypos, size, color))
 
     def drawRectangle(self, xpos, ypos, width, height, color):
@@ -203,6 +208,19 @@ def frameButtons(buttons, recorded):
 def boardCells(game):
     """(column, row) -> "X", "O" or "" for every cell, from the game's state."""
     return {cell: getattr(game, attribute) for _, cell, attribute in CELLS}
+
+
+def winningCells(cells):
+    """The (column, row) of each cell in a line of three marks, or [] when
+    there is none (the same lines as TicTacToe.checkForWinCondition)."""
+    from tictactoe import LINES
+
+    cellOf = {attribute: cell for _, cell, attribute in CELLS}
+    for line in LINES:
+        marks = {cells.get(cellOf[attribute], "") for attribute in line}
+        if len(marks) == 1 and marks != {""}:
+            return [cellOf[attribute] for attribute in line]
+    return []
 
 
 def boardPieces(cells):
@@ -244,6 +262,63 @@ def buttonPixelSize(button, width, height):
 # How far below the page's 2D/3D button (in the browser) a headline or
 # button that would run under it is moved
 KEEP_CLEAR_GAP = 8
+# How far from the board an end screen's headline and buttons are moved
+# (endScreenBoard), and how far from the window's edge they stay
+BOARD_GAP = 8
+EDGE_MARGIN = 8
+
+
+def boardScreenBox(width, height):
+    """The board (its frame included) on screen: (x, y, width, height)."""
+    view = camera(width, height)
+    half = COLUMNS / 2.0 + THEME.frameWidth
+    points = [
+        projectToScreen(view, (x, y, z), width, height)
+        for x in (-half, half)
+        for z in (-half, half)
+        for y in (-THEME.tileHeight, 0.3)
+    ]
+    xs, ys = [p[0] for p in points], [p[1] for p in points]
+    return min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys)
+
+
+def endScreenBoard(cells, buttons, width, height):
+    """On a screen of text and buttons over a played board (You won!, You
+    lost!, It's a tie!), the board's box on screen, which the headline and
+    buttons keep out of where the window has room, so the marks and the lit
+    winning line show; None on any other screen."""
+    if any(button.cell is not None for button in buttons) or not any(cells.values()):
+        return None
+    return boardScreenBox(width, height)
+
+
+def endScreenShift(cells, buttons, width, height, keepClear=None):
+    """How far down an end screen's buttons all move (together, so they
+    keep their order and spacing) to stand below the played board where the
+    window has room; 0 on any other screen."""
+    box = endScreenBoard(cells, buttons, width, height)
+    if box is None or not buttons:
+        return 0.0
+    rects = [screenButton(button, width, height, keepClear).rect() for button in buttons]
+    left = min(r[0] for r in rects)
+    top = min(r[1] for r in rects)
+    right = max(r[0] + r[2] for r in rects)
+    bottom = max(r[1] + r[3] for r in rects)
+    return avoidShift(left, top, right - left, bottom - top, box, height, below=True)
+
+
+def avoidShift(x, y, w, h, box, windowHeight, below):
+    """How far down (below=True) or up a box at (x, y, w, h) moves to clear
+    `box` (the board, endScreenBoard), or 0 when it is clear of it already,
+    there is no room, or there is nothing to keep clear of."""
+    if box is None or not _overlaps(x, y, w, h, box):
+        return 0.0
+    bx, by, bw, bh = box
+    if below:
+        target = by + bh + BOARD_GAP
+        return target - y if target + h <= windowHeight - EDGE_MARGIN else 0.0
+    target = by - BOARD_GAP - h
+    return target - y if target >= EDGE_MARGIN else 0.0
 
 
 def _overlaps(x, y, w, h, area):
@@ -260,25 +335,27 @@ def keepClearShift(x, y, w, h, keepClear):
     return keepClear[1] + keepClear[3] + KEEP_CLEAR_GAP - y
 
 
-def screenButton(button, width, height, keepClear=None):
+def screenButton(button, width, height, keepClear=None, shift=0.0):
     """A non-cell button as a grid3d screen Button: the 2D box scaled to the
-    window, widened about its centre when Strata's wider font needs it, and
-    moved down out from under `keepClear` (the browser's 2D/3D button)."""
+    window, widened about its centre when Strata's wider font needs it,
+    moved down out from under `keepClear` (the browser's 2D/3D button), and
+    `shift` further down (endScreenShift)."""
     sx, sy, _ = layoutScale(width, height)
     screen = ScreenButton(button.xpos * sx, button.ypos * sy, button.width * sx, button.height * sy,
                           button.text, button.colorBox, button.colorText,
                           buttonPixelSize(button, width, height), alpha=0.92,
                           padding=BUTTON_PADDING)
     screen.y += keepClearShift(*screen.rect(), keepClear)
+    screen.y += shift
     return screen
 
 
-def buttonRect(button, width, height, keepClear=None):
+def buttonRect(button, width, height, keepClear=None, shift=0.0):
     """A non-cell button's rectangle in the window (screenButton's)."""
-    return screenButton(button, width, height, keepClear).rect()
+    return screenButton(button, width, height, keepClear, shift).rect()
 
 
-def buttonHit(button, pos, width, height, keepClear=None):
+def buttonHit(button, pos, width, height, keepClear=None, shift=0.0):
     """True when a press at window position `pos` lands on the button: a
     cell's tile as it appears in 3D, or a panel's rectangle (with graphik's
     2D edges: left and top in, right and bottom out)."""
@@ -286,25 +363,29 @@ def buttonHit(button, pos, width, height, keepClear=None):
         return False
     if button.cell is not None:
         return pickCell(pos, width, height) == button.cell
-    return screenButton(button, width, height, keepClear).contains(pos)
+    return screenButton(button, width, height, keepClear, shift).contains(pos)
 
 
-def headlineLabel(text, xpos, ypos, size, width, height, keepClear=None):
+def headlineLabel(text, xpos, ypos, size, width, height, keepClear=None, avoid=None):
     """graphik's drawText centres its text on (xpos, ypos); the headline
-    moves down out from under `keepClear` (the browser's 2D/3D button)."""
+    moves above `avoid` (endScreenBoard) where there is room, and down out
+    from under `keepClear` (the browser's 2D/3D button)."""
     sx, sy, s = layoutScale(width, height)
-    pixelSize = size * TEXT_SCALE * s
-    # never wider than the window
+    # no smaller than a button's label (on a phone held upright the 2D layout shrinks to about
+    # half), and never wider than the window
+    pixelSize = max(MIN_BUTTON_TEXT, size * TEXT_SCALE * s)
     pixelSize = min(pixelSize, (width - 2 * BUTTON_PADDING) / max(1, len(text)))
     # the 2D window paints black text on white; the 3D background is dark
     label = centredLabel(text, xpos * sx, ypos * sy, pixelSize, TEXT_COLOR)
+    label.y += avoidShift(label.x, label.y, measureText(text, pixelSize), pixelSize, avoid, height,
+                          below=False)
     label.y += keepClearShift(label.x, label.y, measureText(text, pixelSize), pixelSize, keepClear)
     return label
 
 
-def buttonPanelAndLabel(button, width, height, pointer, keepClear=None):
+def buttonPanelAndLabel(button, width, height, pointer, keepClear=None, shift=0.0):
     """The panel (lifted while `pointer` is over it) and label of a non-cell button."""
-    return screenButton(button, width, height, keepClear).draw(pointer)
+    return screenButton(button, width, height, keepClear, shift).draw(pointer)
 
 
 def buildScene(cells, texts, buttons, width, height, pointer=None, keepClear=None):
@@ -317,24 +398,31 @@ def buildScene(cells, texts, buttons, width, height, pointer=None, keepClear=Non
     2D/3D button), or None.
     """
     hasCells = any(button.cell is not None for button in buttons)
+    # an end screen keeps its headline and buttons off the played board where there is room
+    avoid = endScreenBoard(cells, buttons, width, height)
+    shift = endScreenShift(cells, [b for b in buttons if b.cell is None], width, height, keepClear)
     labels, panels = [], []
     if not hasCells:
         # a screen of text and buttons over the board, as the 2D screens are
         # drawn over a blank window
         panels.append(Panel(0, 0, width, height, OVERLAY_COLOR))
     for text, xpos, ypos, size, color in texts:
-        labels.append(headlineLabel(text, xpos, ypos, size, width, height, keepClear))
+        labels.append(headlineLabel(text, xpos, ypos, size, width, height, keepClear, avoid))
     hoveredCell = None
     for button in buttons:
-        hovered = buttonHit(button, pointer, width, height, keepClear)
+        hovered = buttonHit(button, pointer, width, height, keepClear, shift)
         if button.cell is not None:
             if hovered:
                 hoveredCell = button.cell
             continue
-        panel, label = buttonPanelAndLabel(button, width, height, pointer, keepClear)
+        panel, label = buttonPanelAndLabel(button, width, height, pointer, keepClear, shift)
         panels.append(panel)
         labels.append(label)
-    return BOARD.scene(
+    scene = BOARD.scene(
         boardPieces(cells), labels=labels, panels=panels, aspect=width / float(height),
         highlight=hoveredCell,
     )
+    # the line that won, lit under its marks, so "You won!" or "You lost!" shows how
+    for cell in winningCells(cells):
+        scene.shapes += BOARD.highlightShapes(cell, WIN_COLOR)
+    return scene

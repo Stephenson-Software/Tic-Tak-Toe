@@ -20,6 +20,7 @@ from strata_view.scene import (
     boardCells,
     buildScene,
     buttonHit,
+    endScreenShift,
     frameButtons,
 )
 from tictactoe import TicTacToe
@@ -97,8 +98,10 @@ class StrataTicTacToe(TicTacToe):
 
     async def pressButton(self, pressPos):
         width, height = self.windowSize
-        for button, function in self.frameButtons():
-            if buttonHit(button, pressPos, width, height):
+        pairs = self.frameButtons()
+        shift = endScreenShift(boardCells(self), [button for button, _ in pairs], width, height)
+        for button, function in pairs:
+            if buttonHit(button, pressPos, width, height, shift=shift):
                 await function()
                 return
 

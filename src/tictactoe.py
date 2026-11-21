@@ -25,6 +25,29 @@ def pressLandedOn(pressPos, xpos, ypos, width, height):
     return pressPos is not None and xpos <= pressPos[0] < xpos + width and ypos <= pressPos[1] < ypos + height
 
 
+# The cells of each line of three, as the TicTacToe attributes holding their marks
+LINES = [
+    ("topLeftL", "topMiddleL", "topRightL"),
+    ("middleLeftL", "middleMiddleL", "middleRightL"),
+    ("bottomLeftL", "bottomMiddleL", "bottomRightL"),
+    ("topLeftL", "middleLeftL", "bottomLeftL"),
+    ("topMiddleL", "middleMiddleL", "bottomMiddleL"),
+    ("topRightL", "middleRightL", "bottomRightL"),
+    ("topLeftL", "middleMiddleL", "bottomRightL"),
+    ("topRightL", "middleMiddleL", "bottomLeftL"),
+]
+
+# The strip above the board where drawGrid says whose turn it is
+STATUS_STRIP_HEIGHT = 110
+STATUS_Y = 60
+STATUS_TEXT_SIZE = 32
+# The title screen's one line of instructions
+TITLE_HOW_TO_PLAY = "You are X: get three in a row."
+
+# The cells of a line of three, once there is one
+WIN_SLOT_COLOR = (255, 215, 0)
+
+
 #  @author Daniel McCoy Stephenson
 #  @since August 6th, 2022
 class TicTacToe:
@@ -81,7 +104,11 @@ class TicTacToe:
         pygame.display.update()
 
     def drawGridSlot(self, xpos, ypos, XorO, function):
-        self.drawButton(xpos, ypos, 100, 100, self.white, self.black, 64, XorO, function)
+        # a cell in the line of three that ended the game is gold, so the board shows how
+        won = self.winningLine()
+        attribute = function.__name__ + "L"
+        colorBox = WIN_SLOT_COLOR if won is not None and attribute in won[1] else self.white
+        self.drawButton(xpos, ypos, 100, 100, colorBox, self.black, 64, XorO, function)
 
     def drawButton(self, xpos, ypos, width, height, colorBox, colorText, sizeText, text, function):
         # Graphik draws the button; the button is remembered so that a press landing on it in
@@ -281,8 +308,36 @@ class TicTacToe:
         self.drawGridSlot(centerGridX - 125, centerGridY + 125, self.bottomLeftL, self.bottomLeft) # bottom row left column
         self.drawGridSlot(centerGridX, centerGridY + 125, self.bottomMiddleL, self.bottomMiddle) # bottom row middle column
         self.drawGridSlot(centerGridX + 125, centerGridY + 125, self.bottomRightL, self.bottomRight) # bottom row right column
-        
+
+        self.drawStatus()
         self.presentNow()
+
+    def winningLine(self):
+        # (mark, the line's three cell attributes) for a line of three, or None
+        for line in LINES:
+            marks = {getattr(self, attribute) for attribute in line}
+            if len(marks) == 1 and marks != {""}:
+                return marks.pop(), line
+        return None
+
+    def statusText(self):
+        # Whose turn it is, read from the board: the player (X) always moves first, so after the
+        # player's move there is one more X than O and the computer is about to move
+        won = self.winningLine()
+        if won is not None:
+            return "You got three in a row!" if won[0] == "X" else "The computer got three in a row."
+        marks = [getattr(self, attribute) for line in LINES[:3] for attribute in line]
+        if "" not in marks:
+            return "The board is full."
+        if marks.count("X") > marks.count("O"):
+            return "The computer (O) is thinking..."
+        return "Your turn: you are X"
+
+    def drawStatus(self):
+        # The board is redrawn mid-frame (a move, then the computer's), so the strip is cleared
+        # before the line is written over it
+        self.graphik.drawRectangle(0, 0, self.displayWidth, STATUS_STRIP_HEIGHT, self.white)
+        self.graphik.drawText(self.statusText(), self.displayWidth//2, STATUS_Y, STATUS_TEXT_SIZE, self.black)
 
     async def restart(self):
         self.topLeftL = ""
@@ -435,6 +490,8 @@ class TicTacToe:
 
             self.beginFrame()
             self.graphik.drawText("Tic Tac Toe", self.displayWidth//2, self.displayHeight//4, 64, self.black)
+            # what the game is, before Start: who the player is and how a game is won
+            self.graphik.drawText(TITLE_HOW_TO_PLAY, self.displayWidth//2, self.displayHeight//4 + 70, 24, self.black)
             middleButtonXPos = self.displayWidth//2 - 50
             self.drawButton(middleButtonXPos, self.displayHeight - 300, 100, 50, self.black, self.white, 20, "Start", self.startGame)
             self.drawQuitButton(middleButtonXPos, self.displayHeight - 100, 100, 50, 20)
