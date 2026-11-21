@@ -195,3 +195,12 @@ def test_on_a_phone_held_upright_the_board_fills_the_width():
     # and a tap on a cell's middle picks that cell
     for cell in [(0, 0), (1, 1), (2, 2)]:
         assert scene.pickCell(scene.cellCenterOnScreen(cell, 390, 844), 390, 844) == cell
+
+
+def test_text_drawn_where_earlier_text_was_replaces_it():
+    # as the 2D window paints over it: the board's status line is redrawn mid-frame on a move
+    recorder = scene.ScreenRecorder()
+    recorder.drawText("Your turn: you are X", 400, 60, 32, (0, 0, 0))
+    recorder.drawText("Tic Tac Toe", 400, 150, 64, (0, 0, 0))
+    recorder.drawText("The computer (O) is thinking...", 400, 60, 32, (0, 0, 0))
+    assert [text for text, *_ in recorder.texts] == ["Tic Tac Toe", "The computer (O) is thinking..."]

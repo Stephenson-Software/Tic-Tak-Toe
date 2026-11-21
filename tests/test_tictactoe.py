@@ -412,7 +412,8 @@ def test_grid_slot_shows_its_cell_and_calls_its_handler(game):
 def test_grid_slots_form_a_three_by_three_grid_inside_the_board(game):
     calls = drawBoard(game)
 
-    board = [call for call in calls if call[0] == "drawRectangle"]
+    #  the black square behind the slots (the white one clears the status strip above it)
+    board = [call for call in calls if call[0] == "drawRectangle" and call[5] == game.black]
     assert len(board) == 1
     _, boardX, boardY, boardWidth, boardHeight, _ = board[0]
 
@@ -444,7 +445,8 @@ def test_drawing_the_board_puts_it_on_screen(game, monkeypatch):
 
     tictactoe.TicTacToe.drawGrid(game)
 
-    assert [call[0] for call in calls] == ["drawRectangle"] + ["drawButton"] * 9 + ["update"]
+    assert [call[0] for call in calls] == (["drawRectangle"] + ["drawButton"] * 9
+                                           + ["drawRectangle", "drawText", "update"])
 
 
 def test_the_board_is_black_behind_white_cells_marked_in_black(game):
@@ -452,7 +454,9 @@ def test_the_board_is_black_behind_white_cells_marked_in_black(game):
     #  its own cell would be invisible.
     calls = drawBoard(game)
 
-    assert [call[5] for call in calls if call[0] == "drawRectangle"] == [game.black]
+    #  (the white strip above it is where the status line is written, in black)
+    assert [call[5] for call in calls if call[0] == "drawRectangle"] == [game.black, game.white]
+    assert [call[2] for call in calls if call[0] == "drawText"] == [game.black]
     assert [(call[8], call[9]) for call in calls if call[0] == "drawButton"] == [(game.white, game.black)] * 9
 
 
@@ -1053,3 +1057,42 @@ def test_a_press_lands_on_a_button_exactly_where_graphik_would_click_it(monkeypa
     graphik.drawButton(xpos, ypos, width, height, (0, 0, 0), (255, 255, 255), 20, "Quit", lambda: clicks.append(1))
 
     assert tictactoe.pressLandedOn(position, xpos, ypos, width, height) == (len(clicks) == 1)
+
+
+@pytest.mark.parametrize("letters,status", [
+    (["", "", "", "", "", "", "", "", ""], "Your turn: you are X"),
+    (["X", "", "", "", "", "", "", "", ""], "The computer (O) is thinking..."),
+    (["X", "O", "", "", "", "", "", "", ""], "Your turn: you are X"),
+    (["X", "X", "X", "O", "O", "", "", "", ""], "You got three in a row!"),
+    (["X", "X", "", "O", "O", "O", "X", "", ""], "The computer got three in a row."),
+    (["X", "O", "X", "X", "O", "O", "O", "X", "X"], "The board is full."),
+])
+def test_the_board_says_whose_turn_it_is(game, letters, status):
+    #  An empty board with nothing on it gave no sign that the player is X or that a tap on a cell
+    #  is the move, and the computer's one-second pause looked like the game had stopped.
+    setBoard(game, letters)
+
+    calls = drawBoard(game)
+
+    assert game.statusText() == status
+    assert [call[1] for call in calls if call[0] == "drawText"] == [status]
+
+
+def test_the_status_strip_is_cleared_before_the_line_is_written_over_it(game):
+    #  drawGrid runs twice in a frame when a move is made, so the line is written on a cleared strip
+    calls = drawBoard(game)
+
+    strip = [call for call in calls if call[0] == "drawRectangle" and call[5] == game.white]
+    assert len(strip) == 1
+    _, x, y, width, height, _ = strip[0]
+    assert (x, y, width) == (0, 0, game.displayWidth)
+    assert height <= game.displayHeight // 2 - 50 - 125  # above the black board
+    assert calls.index(strip[0]) < [call[0] for call in calls].index("drawText")
+
+
+def test_winning_line_names_the_mark_and_its_cells(game):
+    setBoard(game, ["O", "X", "X", "", "O", "X", "", "", "O"])
+
+    assert game.winningLine() == ("O", ("topLeftL", "middleMiddleL", "bottomRightL"))
+    setBoard(game, ["O", "X", "", "", "", "", "", "", ""])
+    assert game.winningLine() is None

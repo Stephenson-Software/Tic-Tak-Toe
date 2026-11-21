@@ -176,6 +176,9 @@ class ScreenRecorder:
         self.buttons = []
 
     def drawText(self, text, xpos, ypos, size, color):
+        # Text drawn where earlier text in this frame was replaces it, as the 2D window paints
+        # over it: the board's status line is redrawn mid-frame when a move is made
+        self.texts = [t for t in self.texts if (t[1], t[2]) != (xpos, ypos)]
         self.texts.append((text, xpos, ypos, size, color))
 
     def drawRectangle(self, xpos, ypos, width, height, color):

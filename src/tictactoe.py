@@ -25,6 +25,24 @@ def pressLandedOn(pressPos, xpos, ypos, width, height):
     return pressPos is not None and xpos <= pressPos[0] < xpos + width and ypos <= pressPos[1] < ypos + height
 
 
+# The cells of each line of three, as the TicTacToe attributes holding their marks
+LINES = [
+    ("topLeftL", "topMiddleL", "topRightL"),
+    ("middleLeftL", "middleMiddleL", "middleRightL"),
+    ("bottomLeftL", "bottomMiddleL", "bottomRightL"),
+    ("topLeftL", "middleLeftL", "bottomLeftL"),
+    ("topMiddleL", "middleMiddleL", "bottomMiddleL"),
+    ("topRightL", "middleRightL", "bottomRightL"),
+    ("topLeftL", "middleMiddleL", "bottomRightL"),
+    ("topRightL", "middleMiddleL", "bottomLeftL"),
+]
+
+# The strip above the board where drawGrid says whose turn it is
+STATUS_STRIP_HEIGHT = 110
+STATUS_Y = 60
+STATUS_TEXT_SIZE = 32
+
+
 #  @author Daniel McCoy Stephenson
 #  @since August 6th, 2022
 class TicTacToe:
@@ -281,8 +299,36 @@ class TicTacToe:
         self.drawGridSlot(centerGridX - 125, centerGridY + 125, self.bottomLeftL, self.bottomLeft) # bottom row left column
         self.drawGridSlot(centerGridX, centerGridY + 125, self.bottomMiddleL, self.bottomMiddle) # bottom row middle column
         self.drawGridSlot(centerGridX + 125, centerGridY + 125, self.bottomRightL, self.bottomRight) # bottom row right column
-        
+
+        self.drawStatus()
         self.presentNow()
+
+    def winningLine(self):
+        # (mark, the line's three cell attributes) for a line of three, or None
+        for line in LINES:
+            marks = {getattr(self, attribute) for attribute in line}
+            if len(marks) == 1 and marks != {""}:
+                return marks.pop(), line
+        return None
+
+    def statusText(self):
+        # Whose turn it is, read from the board: the player (X) always moves first, so after the
+        # player's move there is one more X than O and the computer is about to move
+        won = self.winningLine()
+        if won is not None:
+            return "You got three in a row!" if won[0] == "X" else "The computer got three in a row."
+        marks = [getattr(self, attribute) for line in LINES[:3] for attribute in line]
+        if "" not in marks:
+            return "The board is full."
+        if marks.count("X") > marks.count("O"):
+            return "The computer (O) is thinking..."
+        return "Your turn: you are X"
+
+    def drawStatus(self):
+        # The board is redrawn mid-frame (a move, then the computer's), so the strip is cleared
+        # before the line is written over it
+        self.graphik.drawRectangle(0, 0, self.displayWidth, STATUS_STRIP_HEIGHT, self.white)
+        self.graphik.drawText(self.statusText(), self.displayWidth//2, STATUS_Y, STATUS_TEXT_SIZE, self.black)
 
     async def restart(self):
         self.topLeftL = ""
