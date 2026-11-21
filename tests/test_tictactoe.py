@@ -1096,3 +1096,15 @@ def test_winning_line_names_the_mark_and_its_cells(game):
     assert game.winningLine() == ("O", ("topLeftL", "middleMiddleL", "bottomRightL"))
     setBoard(game, ["O", "X", "", "", "", "", "", "", ""])
     assert game.winningLine() is None
+
+
+def test_the_cells_of_a_line_of_three_are_drawn_gold(game):
+    #  The board shows for a second before the end screen; the gold cells say which line ended it
+    setBoard(game, ["O", "X", "X", "", "O", "X", "", "", "O"])
+
+    calls = drawBoard(game)
+
+    boxes = [call[8] for call in calls if call[0] == "drawButton"]
+    gold = [index for index, color in enumerate(boxes) if color == tictactoe.WIN_SLOT_COLOR]
+    assert gold == [0, 4, 8]
+    assert all(color == game.white for index, color in enumerate(boxes) if index not in gold)

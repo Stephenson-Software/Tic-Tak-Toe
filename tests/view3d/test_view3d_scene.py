@@ -212,3 +212,18 @@ def test_a_headline_on_a_phone_is_no_smaller_than_a_button_label():
     label = scene.headlineLabel("Your turn: you are X", 400, 60, 32, 390, 844)
     assert label.pixelSize >= scene.MIN_BUTTON_TEXT
     assert label.x >= 0 and label.x + len(label.text) * label.pixelSize <= 390
+
+
+def test_the_winning_line_is_lit_under_its_marks():
+    # the end screens keep the board, and the line of three is what says how it was won or lost
+    cells = emptyCells()
+    for cell in [(2, 0), (1, 1), (0, 2)]:
+        cells[cell] = "O"
+    cells[(0, 0)] = "X"
+    assert scene.winningCells(cells) == [(2, 0), (1, 1), (0, 2)]
+    lit = scene.buildScene(cells, [("You lost!", 400, 150, 64, (0, 0, 0))], [], 800, 600)
+    unlit = scene.buildScene(emptyCells(), [], [], 800, 600)
+    gold = [shape for shape in lit.shapes if tuple(shape.color[:3]) == scene.WIN_COLOR]
+    assert len(gold) == 3
+    assert not [shape for shape in unlit.shapes if tuple(shape.color[:3]) == scene.WIN_COLOR]
+    assert scene.winningCells(emptyCells()) == []

@@ -71,6 +71,8 @@ CELL_OF_HANDLER = {handler: cell for handler, cell, _ in CELLS}
 X_COLOR = (0.86, 0.22, 0.18)
 O_COLOR = (0.20, 0.46, 0.88)
 HOVER_COLOR = (1.0, 0.86, 0.35)
+# The tiles under a line of three, once there is one
+WIN_COLOR = (1.0, 0.78, 0.10)
 TILE_LIGHT = (0.86, 0.85, 0.80)
 TILE_DARK = (0.78, 0.77, 0.72)
 FRAME_COLOR = (0.10, 0.10, 0.12)
@@ -208,6 +210,19 @@ def boardCells(game):
     return {cell: getattr(game, attribute) for _, cell, attribute in CELLS}
 
 
+def winningCells(cells):
+    """The (column, row) of each cell in a line of three marks, or [] when
+    there is none (the same lines as TicTacToe.checkForWinCondition)."""
+    from tictactoe import LINES
+
+    cellOf = {attribute: cell for _, cell, attribute in CELLS}
+    for line in LINES:
+        marks = {cells.get(cellOf[attribute], "") for attribute in line}
+        if len(marks) == 1 and marks != {""}:
+            return [cellOf[attribute] for attribute in line]
+    return []
+
+
 def boardPieces(cells):
     return [
         Piece(id=cell, column=cell[0], row=cell[1], style=mark)
@@ -338,7 +353,11 @@ def buildScene(cells, texts, buttons, width, height, pointer=None, keepClear=Non
         panel, label = buttonPanelAndLabel(button, width, height, pointer, keepClear)
         panels.append(panel)
         labels.append(label)
-    return BOARD.scene(
+    scene = BOARD.scene(
         boardPieces(cells), labels=labels, panels=panels, aspect=width / float(height),
         highlight=hoveredCell,
     )
+    # the line that won, lit under its marks, so "You won!" or "You lost!" shows how
+    for cell in winningCells(cells):
+        scene.shapes += BOARD.highlightShapes(cell, WIN_COLOR)
+    return scene

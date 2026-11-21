@@ -41,6 +41,8 @@ LINES = [
 STATUS_STRIP_HEIGHT = 110
 STATUS_Y = 60
 STATUS_TEXT_SIZE = 32
+# The cells of a line of three, once there is one
+WIN_SLOT_COLOR = (255, 215, 0)
 
 
 #  @author Daniel McCoy Stephenson
@@ -99,7 +101,11 @@ class TicTacToe:
         pygame.display.update()
 
     def drawGridSlot(self, xpos, ypos, XorO, function):
-        self.drawButton(xpos, ypos, 100, 100, self.white, self.black, 64, XorO, function)
+        # a cell in the line of three that ended the game is gold, so the board shows how
+        won = self.winningLine()
+        attribute = function.__name__ + "L"
+        colorBox = WIN_SLOT_COLOR if won is not None and attribute in won[1] else self.white
+        self.drawButton(xpos, ypos, 100, 100, colorBox, self.black, 64, XorO, function)
 
     def drawButton(self, xpos, ypos, width, height, colorBox, colorText, sizeText, text, function):
         # Graphik draws the button; the button is remembered so that a press landing on it in
