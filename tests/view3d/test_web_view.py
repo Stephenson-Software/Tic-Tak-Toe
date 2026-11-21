@@ -209,7 +209,7 @@ def test_turning_the_toggle_on_opens_the_view_and_sends_the_screen(game, page):
     assert (game.view3d.width, game.view3d.height) == PHONE
     kinds = [grid3dweb.decode(m)[0] for m in page.relay.messages]
     assert grid3dweb.BOARD in kinds and grid3dweb.HUD in kinds and grid3dweb.VIEW in kinds
-    assert hudText(page) == ["Tic Tac Toe", "Start"]
+    assert hudText(page) == ["Tic Tac Toe", tictactoe.TITLE_HOW_TO_PLAY, "Start"]
 
 
 @pytest.mark.parametrize("screen,headline,button", [
@@ -221,7 +221,9 @@ def test_turning_the_toggle_on_opens_the_view_and_sends_the_screen(game, page):
 def test_every_screen_shows_its_headline_and_buttons_in_3d_without_quit(game, page, screen, headline, button):
     setMarks(game, ["XXX", "OO ", "   "], 5)
     on3D(game, page, screen)
-    assert hudText(page) == [headline, button]
+    # the title screen has a line of instructions under its headline
+    lines = [tictactoe.TITLE_HOW_TO_PLAY] if screen == "titleScreen" else []
+    assert hudText(page) == [headline] + lines + [button]
 
 
 def test_the_board_screen_shows_the_marks_as_pieces(game, page):
@@ -298,7 +300,7 @@ def test_a_page_that_starts_in_3d_shows_the_first_screen_in_3d_and_takes_the_fir
     page.on = True  # before the game has drawn anything: no press on the button
     oneFrame(game, "titleScreen")
     assert game.view3d is not None and page.opened == 1
-    assert hudText(page) == ["Tic Tac Toe", "Start"]
+    assert hudText(page) == ["Tic Tac Toe", tictactoe.TITLE_HOW_TO_PLAY, "Start"]
     page.relay.events = press(pointOn(game, "Start"), pointer="touch")
     asyncio.run(game.pressButton(game.readEvents()))
     assert started == [True]

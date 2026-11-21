@@ -357,7 +357,7 @@ def test_end_screen_draws_its_own_headline(game, monkeypatch, screenName, headli
 def test_title_screen_draws_the_game_name(game, monkeypatch):
     calls = renderOneFrame(game, monkeypatch, "titleScreen")
 
-    assert [call[1] for call in calls if call[0] == "drawText"] == ["Tic Tac Toe"]
+    assert [call[1] for call in calls if call[0] == "drawText"] == ["Tic Tac Toe", tictactoe.TITLE_HOW_TO_PLAY]
 
 
 @pytest.mark.parametrize("screenName,handlerNames", BUTTON_SCREENS)
@@ -466,7 +466,8 @@ def test_screens_draw_black_headlines_and_black_buttons_with_white_labels(game, 
     #  a label drawn in the color of its button could not be read.
     calls = renderOneFrame(game, monkeypatch, screenName)
 
-    assert [call[2] for call in calls if call[0] == "drawText"] == [game.black]
+    textColors = [call[2] for call in calls if call[0] == "drawText"]
+    assert textColors and set(textColors) == {game.black}
     buttonColors = [(call[8], call[9]) for call in calls if call[0] == "drawButton"]
     assert buttonColors == [(game.black, game.white)] * 2
 

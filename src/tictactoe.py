@@ -41,6 +41,9 @@ LINES = [
 STATUS_STRIP_HEIGHT = 110
 STATUS_Y = 60
 STATUS_TEXT_SIZE = 32
+# The title screen's one line of instructions
+TITLE_HOW_TO_PLAY = "You are X: get three in a row."
+
 # The cells of a line of three, once there is one
 WIN_SLOT_COLOR = (255, 215, 0)
 
@@ -487,6 +490,8 @@ class TicTacToe:
 
             self.beginFrame()
             self.graphik.drawText("Tic Tac Toe", self.displayWidth//2, self.displayHeight//4, 64, self.black)
+            # what the game is, before Start: who the player is and how a game is won
+            self.graphik.drawText(TITLE_HOW_TO_PLAY, self.displayWidth//2, self.displayHeight//4 + 70, 24, self.black)
             middleButtonXPos = self.displayWidth//2 - 50
             self.drawButton(middleButtonXPos, self.displayHeight - 300, 100, 50, self.black, self.white, 20, "Start", self.startGame)
             self.drawQuitButton(middleButtonXPos, self.displayHeight - 100, 100, 50, 20)
