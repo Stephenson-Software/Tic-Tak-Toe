@@ -296,8 +296,9 @@ def headlineLabel(text, xpos, ypos, size, width, height, keepClear=None):
     """graphik's drawText centres its text on (xpos, ypos); the headline
     moves down out from under `keepClear` (the browser's 2D/3D button)."""
     sx, sy, s = layoutScale(width, height)
-    pixelSize = size * TEXT_SCALE * s
-    # never wider than the window
+    # no smaller than a button's label (on a phone held upright the 2D layout shrinks to about
+    # half), and never wider than the window
+    pixelSize = max(MIN_BUTTON_TEXT, size * TEXT_SCALE * s)
     pixelSize = min(pixelSize, (width - 2 * BUTTON_PADDING) / max(1, len(text)))
     # the 2D window paints black text on white; the 3D background is dark
     label = centredLabel(text, xpos * sx, ypos * sy, pixelSize, TEXT_COLOR)

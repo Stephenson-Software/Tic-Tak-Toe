@@ -204,3 +204,11 @@ def test_text_drawn_where_earlier_text_was_replaces_it():
     recorder.drawText("Tic Tac Toe", 400, 150, 64, (0, 0, 0))
     recorder.drawText("The computer (O) is thinking...", 400, 60, 32, (0, 0, 0))
     assert [text for text, *_ in recorder.texts] == ["Tic Tac Toe", "The computer (O) is thinking..."]
+
+
+def test_a_headline_on_a_phone_is_no_smaller_than_a_button_label():
+    # the 2D layout shrinks to about half on a phone held upright, which left the board's
+    # status line at about 11 pixels
+    label = scene.headlineLabel("Your turn: you are X", 400, 60, 32, 390, 844)
+    assert label.pixelSize >= scene.MIN_BUTTON_TEXT
+    assert label.x >= 0 and label.x + len(label.text) * label.pixelSize <= 390
