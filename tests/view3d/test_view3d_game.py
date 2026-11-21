@@ -126,9 +126,11 @@ def setMarks(game, rows, moves):
 
 def pointOn(game, label):
     width, height = game.windowSize
-    for button, _ in game.frameButtons():
+    pairs = game.frameButtons()
+    shift = scene.endScreenShift(scene.boardCells(game), [b for b, _ in pairs], width, height)
+    for button, _ in pairs:
         if button.text == label and button.cell is None:
-            x, y, w, h = scene.buttonRect(button, width, height)
+            x, y, w, h = scene.buttonRect(button, width, height, shift=shift)
             return (x + w / 2, y + h / 2)
     raise AssertionError("no %r button on screen" % label)
 

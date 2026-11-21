@@ -152,9 +152,12 @@ def press(pos, pointer="mouse", button=1):
 
 def pointOn(game, label):
     width, height = game.view3d.width, game.view3d.height
-    for button, _ in game.frameButtons():
+    pairs = game.frameButtons()
+    shift = scene.endScreenShift(scene.boardCells(game), [b for b, _ in pairs], width, height,
+                                 game.keepClear)
+    for button, _ in pairs:
         if button.text == label and button.cell is None:
-            x, y, w, h = scene.buttonRect(button, width, height)
+            x, y, w, h = scene.buttonRect(button, width, height, game.keepClear, shift)
             return (x + w / 2, y + h / 2)
     raise AssertionError("no %r button on screen" % label)
 

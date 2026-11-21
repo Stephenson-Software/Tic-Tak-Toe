@@ -227,3 +227,53 @@ def test_the_winning_line_is_lit_under_its_marks():
     assert len(gold) == 3
     assert not [shape for shape in unlit.shapes if tuple(shape.color[:3]) == scene.WIN_COLOR]
     assert scene.winningCells(emptyCells()) == []
+
+
+def lostCells():
+    cells = emptyCells()
+    for cell in [(2, 0), (1, 1), (0, 2), (1, 2)]:
+        cells[cell] = "O"
+    for cell in [(0, 0), (1, 0), (0, 1), (2, 1)]:
+        cells[cell] = "X"
+    return cells
+
+
+@pytest.mark.parametrize("size", [(390, 844), (1280, 800)])
+def test_an_end_screens_headline_and_play_again_keep_off_the_played_board(size):
+    # the marks and the lit line say how it ended, so nothing covers them where there is room
+    width, height = size
+    playAgain = button("Play Again", 350, 400, 100, 50)  # where the end screens draw it in 2D
+    headline = ("You lost!", 400, 150, 64, (0, 0, 0))
+    board = scene.boardScreenBox(width, height)
+    assert scene.endScreenBoard(lostCells(), [playAgain], width, height) == board
+    built = scene.buildScene(lostCells(), [headline], [playAgain], width, height)
+    panel = [p for p in built.panels if p.width < width][0]
+    assert not scene._overlaps(panel.x, panel.y, panel.width, panel.height, board)
+    label = [lab for lab in built.labels if lab.text == "You lost!"][0]
+    assert not scene._overlaps(label.x, label.y, scene.measureText(label.text, label.pixelSize),
+                               label.pixelSize, board)
+    assert label.y >= 0 and panel.y + panel.height <= height
+    # and a press lands where the button is drawn
+    shift = scene.endScreenShift(lostCells(), [playAgain], width, height)
+    assert shift > 0
+    centre = (panel.x + panel.width / 2, panel.y + panel.height / 2)
+    assert scene.buttonHit(playAgain, centre, width, height, shift=shift)
+    assert not scene.buttonHit(playAgain, centre, width, height)  # where 2D's layout would put it
+
+
+def test_an_end_screens_buttons_move_together_or_not_at_all():
+    # the desktop window's end screens have Play Again and Quit, one above the other
+    playAgain, quit = button("Play Again", 350, 400, 100, 50), button("Quit", 350, 500, 100, 50)
+    for width, height in [(800, 600), (390, 844), (1280, 800)]:
+        shift = scene.endScreenShift(lostCells(), [playAgain, quit], width, height)
+        a = scene.buttonRect(playAgain, width, height, shift=shift)
+        b = scene.buttonRect(quit, width, height, shift=shift)
+        assert a[1] + a[3] <= b[1]  # still in order, never on top of each other
+        assert b[1] + b[3] <= height
+
+
+def test_the_title_and_board_screens_keep_their_layout():
+    start = button("Start", 350, 300, 100, 50)
+    assert scene.endScreenBoard(emptyCells(), [start], 390, 844) is None  # the title: no marks
+    cellButton = button("", 0, 0, 10, 10, cell=(0, 0))
+    assert scene.endScreenBoard(lostCells(), [cellButton], 390, 844) is None  # playing

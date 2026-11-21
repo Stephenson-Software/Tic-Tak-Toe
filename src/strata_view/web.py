@@ -38,6 +38,7 @@ from strata_view.scene import (
     boardCells,
     buildScene,
     buttonHit,
+    endScreenShift,
     frameButtons,
 )
 from tictactoe import TicTacToe
@@ -326,7 +327,10 @@ class WebTicTacToe(TicTacToe):
         if self.view3d is None:
             return  # switched back to 2D since the press: it was aimed at the 3D view
         width, height = self.view3d.width, self.view3d.height
-        for button, function in self.frameButtons():
-            if buttonHit(button, pressPos, width, height, self.keepClear):
+        pairs = self.frameButtons()
+        shift = endScreenShift(boardCells(self), [button for button, _ in pairs], width, height,
+                               self.keepClear)
+        for button, function in pairs:
+            if buttonHit(button, pressPos, width, height, self.keepClear, shift):
                 await function()
                 return
