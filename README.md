@@ -4,6 +4,10 @@
 
 This game allows you to play Tic Tac Toe against the computer.
 
+![The 3D board mid-game: a 3 by 3 grid of white tiles in a dark frame, two red X pieces and two blue O rings standing on their cells](docs/images/3d-hero.png)
+
+<sub>The 3D window, rendered by `python3 tools/strata_snapshot.py` (the board screen mid-game).</sub>
+
 ## Play in your browser
 The game is also built for the browser with [pygbag](https://pygame-web.github.io) and served at https://tic-tak-toe.play.danielstephenson.dev, alongside the other games at https://danielstephenson.dev/play. Nothing needs to be installed: the page loads Python and pygame compiled to WebAssembly, then asks for a click or tap to start. The board and buttons work with a mouse or a tap on a phone. There is no Quit button in the browser build (closing the tab is how to leave).
 
@@ -20,6 +24,19 @@ then open http://127.0.0.1:8000 (pygbag looks for its packages on a local CDN wh
 The page starts in 3D, as the desktop game does (see [3D view](#3d-view)). The **2D** button in its top-right corner switches to the 2D view and **3D** switches back; either way works at any moment, in the middle of a game too. The page remembers a player's choice of 2D, and `?view=2d` (or `?view=3d`) at the end of the address picks the view for that visit. The page is built with graphik's pygbag template, and the fourth line above copies Strata's prebuilt grid relay (from Strata's 0.9.0 release, checked against its SHA256SUMS) next to it. The 3D view is about 1.3 MB; a page that starts in 2D downloads none of it until the button is pressed. If 3D can't start (no WebGL 2, for example), the 2D view stays, the button says "3D unavailable", and the page and the game say why.
 
 For the browser, every screen draws one frame per pass and yields to the event loop with `await asyncio.sleep(0)`, and the one-second pauses use `await asyncio.sleep(1)`, so the screens, the cell handlers and the win check are coroutines. A button is pressed by the left-button press event that lands on it, once per click or tap (a browser tap delivers its press and release in the same frame, so [graphik](https://github.com/Stephenson-Software/graphik)'s held-button check is not used for pressing). Presses made during the one-second pause before an end screen are discarded, because Play Again is drawn over the bottom-middle cell. Presses made during the computer's one-second pause are discarded too, so a tap is not played as the next move before the computer's mark has been seen. Presses made in the half second after Start is pressed are discarded as well, because Start is drawn over the centre cell and the second press of a double-click would otherwise play a move there.
+
+### Play in 3D or 2D
+- **3D** (the default): https://tic-tak-toe.play.danielstephenson.dev
+- **2D**: https://tic-tak-toe.play.danielstephenson.dev/?view=2d
+
+The **2D**/**3D** button in the page's top-right corner switches between them at any moment, and the page remembers a choice of 2D.
+
+<p>
+  <img src="docs/images/3d-play.gif" width="420" alt="A game won in 3D in the browser: X is placed by clicking a tile, which lights yellow under the pointer, the computer answers with blue O rings, and X completes the left column; the board dims under You won! and Play Again">
+  <img src="docs/images/3d-phone.png" width="200" alt="The same win on a phone held upright: You won! above the dimmed 3D board, Play Again below it and the 2D button in the top-right corner">
+</p>
+
+<sub>Recorded from a local build of the browser page (Playwright, headless Chromium): a game won with clicks on a 1280x800 desktop (left, cropped to the board), and the end of a game played with taps on a 390x844 phone (right).</sub>
 
 ## Getting Started
 ### Requirements
